@@ -42,12 +42,29 @@ pub struct TerminalSettings {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Profile {
+    pub name: String,
+    pub command: String,
+    pub args: Option<Vec<String>>,
+    // Optional overrides
+    pub font: Option<FontConfig>,
+    pub theme: Option<ThemeConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Profiles {
+    pub default: String,
+    pub list: Vec<Profile>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-    version: u32,
+    pub version: u32,
     pub font: FontConfig,
     pub theme: ThemeConfig,
-    pub shell: ShellConfig,
+    pub shell: ShellConfig, // Keep for backwards compatibility
     pub terminal: TerminalSettings,
+    pub profiles: Option<Profiles>, // Optional new section
 }
 
 // Config versions for migration
@@ -82,6 +99,25 @@ impl Default for Config {
             terminal: TerminalSettings {
                 scrollback: Some(5000),
             },
+            profiles: Some(Profiles {
+                default: "PowerShell".into(),
+                list: vec![
+                    Profile {
+                        name: "PowerShell".into(),
+                        command: "powershell.exe".into(),
+                        args: None,
+                        font: None,
+                        theme: None,
+                    },
+                    Profile {
+                        name: "WSL".into(),
+                        command: "wsl.exe".into(),
+                        args: None,
+                        font: None,
+                        theme: None,
+                    },
+                ],
+            }),
         }
     }
 }
@@ -143,6 +179,7 @@ impl Config {
             terminal: TerminalSettings {
                 scrollback: Some(5000),
             },
+            profiles: None,
         }
     }
 

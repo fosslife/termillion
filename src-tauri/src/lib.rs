@@ -4,6 +4,7 @@ mod pty;
 
 use config::Config;
 use pty::PtyManager;
+use tauri::Window;
 
 #[tauri::command]
 async fn get_config(app: tauri::AppHandle) -> Result<Config, String> {
@@ -45,13 +46,31 @@ async fn write_pty(
 
 #[tauri::command]
 async fn create_pty(
-    window: tauri::Window,
+    window: Window,
+    app: tauri::AppHandle,
     state: tauri::State<'_, PtyManager>,
     cwd: String,
     rows: u16,
     cols: u16,
+    command: Option<String>,
+    args: Option<Vec<String>>,
 ) -> Result<String, String> {
-    state.create_pty(cwd, rows, cols, window).await
+    let config = config::Config::load(&app)?;
+
+    // Use provided command or fall back to default shell
+    let command = command.unwrap_or_else(|| {
+        #[cfg(target_os = "windows")]
+        return config.shell.windows.clone();
+        #[cfg(target_os = "linux")]
+        return config.shell.linux.clone();
+        #[cfg(target_os = "macos")]
+        return config.shell.macos.clone();
+    });
+
+    // Create PTY with command and args
+    state
+        .create_pty_with_command(window, cwd, rows, cols, command, args)
+        .await
 }
 
 #[tauri::command]

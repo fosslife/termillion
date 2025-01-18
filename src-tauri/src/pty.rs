@@ -1,18 +1,19 @@
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{Child, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
-use tauri::async_runtime::spawn;
 use tauri::Emitter;
+use tauri::{async_runtime::spawn, Manager, Window};
 use uuid::Uuid;
-
-pub struct PtyManager {
-    ptys: Arc<Mutex<HashMap<String, PtyInstance>>>,
-}
 
 struct PtyInstance {
     master: Box<dyn MasterPty + Send>,
+    child: Box<dyn Child + Send + Sync>,
     writer: Box<dyn Write + Send>,
+}
+
+pub struct PtyManager {
+    ptys: Arc<Mutex<HashMap<String, PtyInstance>>>,
 }
 
 impl PtyManager {
@@ -22,16 +23,30 @@ impl PtyManager {
         }
     }
 
-    pub async fn create_pty(
+    pub async fn create_pty_with_command(
         &self,
+        window: Window,
         cwd: String,
         rows: u16,
         cols: u16,
-        window: tauri::Window,
+        command: String,
+        args: Option<Vec<String>>,
     ) -> Result<String, String> {
-        let pty_system = native_pty_system();
+        // Create command builder
+        let mut cmd = CommandBuilder::new(command);
 
-        // Create PTY with size
+        // Add any provided arguments
+        if let Some(args) = args {
+            for arg in args {
+                cmd.arg(arg);
+            }
+        }
+
+        // Set working directory
+        cmd.cwd(cwd);
+
+        // Create new PTY
+        let pty_system = portable_pty::native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
                 rows,
@@ -39,60 +54,55 @@ impl PtyManager {
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Failed to create PTY pair: {}", e))?;
 
-        // Get default shell command
-        let shell_cmd = if cfg!(target_os = "windows") {
-            CommandBuilder::new("powershell.exe")
-        } else {
-            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-            CommandBuilder::new(&shell)
-        };
-
-        // Configure command
-        let mut cmd = shell_cmd;
-        cmd.cwd(cwd);
-
-        // Spawn shell in PTY
-        let _child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
-
-        // Generate unique ID for this PTY
-        let pty_id = Uuid::new_v4().to_string();
+        let child = pair
+            .slave
+            .spawn_command(cmd)
+            .map_err(|e| format!("Failed to spawn command: {}", e))?;
 
         // Clone reader before moving master
-        let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+        let mut reader = pair
+            .master
+            .try_clone_reader()
+            .map_err(|e| format!("Failed to get PTY reader: {}", e))?;
 
-        // Get writer for sending input to PTY
-        let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+        let writer = pair
+            .master
+            .take_writer()
+            .map_err(|e| format!("Failed to get PTY writer: {}", e))?;
 
-        // Store PTY instance
+        let pty_id = Uuid::new_v4().to_string();
+
         let mut ptys = self.ptys.lock().unwrap();
         ptys.insert(
             pty_id.clone(),
             PtyInstance {
                 master: pair.master,
+                child,
                 writer,
             },
         );
 
+        // Set up output handling
         let pty_id_clone = pty_id.clone();
+        let ptys_clone = Arc::clone(&self.ptys);
         let window_clone = window.clone();
 
-        // Spawn async task to read PTY output
         spawn(async move {
-            let mut buffer = [0u8; 1024];
+            let mut buffer = [0u8; 4096];
             loop {
                 match reader.read(&mut buffer) {
                     Ok(0) => break, // EOF
                     Ok(n) => {
                         let output = String::from_utf8_lossy(&buffer[..n]);
-                        if let Err(e) = window_clone.emit(
-                            &format!("pty://output/{}", pty_id_clone),
-                            output.to_string(),
-                        ) {
-                            eprintln!("Failed to emit PTY output: {}", e);
-                            break;
-                        }
+                        // Send raw bytes to maintain control sequences
+                        window_clone
+                            .emit(
+                                &format!("pty://output/{}", pty_id_clone),
+                                output.to_string(),
+                            )
+                            .unwrap_or_else(|e| eprintln!("Failed to emit PTY output: {}", e));
                     }
                     Err(e) => {
                         eprintln!("Failed to read from PTY: {}", e);
@@ -102,12 +112,8 @@ impl PtyManager {
             }
 
             // Cleanup when PTY exits
-            if let Err(e) = window_clone.emit(
-                &format!("pty://exit/{}", pty_id_clone),
-                "PTY process exited",
-            ) {
-                eprintln!("Failed to emit PTY exit event: {}", e);
-            }
+            let mut ptys = ptys_clone.lock().unwrap();
+            ptys.remove(&pty_id_clone);
         });
 
         Ok(pty_id)

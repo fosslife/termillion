@@ -31,9 +31,15 @@ export class TabManager {
   }
 
   private setupTabControls() {
-    // New tab button
+    // New tab button with profile selection
     const newTabBtn = document.querySelector(".new-tab");
-    newTabBtn?.addEventListener("click", () => this.createTab());
+    newTabBtn?.addEventListener("click", (e) => {
+      if (e.ctrlKey) {
+        this.showProfileSelection(e);
+      } else {
+        this.createTab();
+      }
+    });
 
     // Close tab buttons
     document.addEventListener("click", (e) => {
@@ -66,7 +72,43 @@ export class TabManager {
     });
   }
 
-  async createTab() {
+  private async showProfileSelection(event: MouseEvent) {
+    // Create and show profile menu
+    const menu = document.createElement("div");
+    menu.className = "profile-menu";
+
+    // Get profiles from config
+    const profiles = this.config.profiles?.list || [];
+
+    profiles.forEach((profile) => {
+      const item = document.createElement("div");
+      item.className = "profile-item";
+      item.textContent = profile.name;
+      item.addEventListener("click", () => {
+        this.createTab({ profile: profile.name });
+        menu.remove();
+      });
+      menu.appendChild(item);
+    });
+
+    // Position menu near the + button
+    menu.style.position = "absolute";
+    menu.style.top = `${event.clientY + 5}px`;
+    menu.style.left = `${event.clientX}px`;
+
+    // Close menu when clicking outside
+    const closeMenu = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) {
+        menu.remove();
+        document.removeEventListener("click", closeMenu);
+      }
+    };
+
+    document.addEventListener("click", closeMenu);
+    document.body.appendChild(menu);
+  }
+
+  async createTab(options?: { profile?: string }) {
     const tabId = crypto.randomUUID();
     const terminalElement = document.createElement("div");
     terminalElement.className = "terminal-instance";
@@ -74,23 +116,43 @@ export class TabManager {
     this.container.appendChild(terminalElement);
 
     try {
+      // Get profile-specific command
+      const profileName = options?.profile || this.config.profiles?.default;
+      const profile = profileName
+        ? this.config.profiles?.list.find((p) => p.name === profileName)
+        : null;
+
       // Create xterm instance
       const xterm = await this.createTerminal(terminalElement);
       const fitAddon = new FitAddon();
       xterm.loadAddon(fitAddon);
 
-      // Create PTY
+      // Fit before creating PTY to get correct dimensions
+      fitAddon.fit();
+
+      // Create PTY with profile command if available
       const ptyId = (await invoke("create_pty", {
         cwd: "~",
         rows: xterm.rows,
         cols: xterm.cols,
-      })) as string; // Add type assertion here
+        command: profile?.command,
+        args: profile?.args,
+      })) as string;
 
       // Set up event listeners
       const unlisten = await getCurrentWindow().listen(
         `pty://output/${ptyId}`,
         (event: any) => {
-          xterm.write(event.payload);
+          if (typeof event.payload === "string") {
+            const isUserScrolled = xterm.buffer.active.viewportY > 0;
+            const currentLine = xterm.buffer.active.cursorY;
+            xterm.write(event.payload);
+
+            // Only auto-scroll if we're near the bottom
+            if (!isUserScrolled || currentLine >= xterm.rows - 3) {
+              xterm.scrollToBottom();
+            }
+          }
         }
       );
 
@@ -108,20 +170,30 @@ export class TabManager {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
           fitAddon.fit();
-          invoke("resize_pty", {
-            ptyId,
+          // Get the new dimensions after fit
+          const dims = {
             rows: xterm.rows,
             cols: xterm.cols,
+          };
+          invoke("resize_pty", {
+            ptyId,
+            ...dims,
           });
+          // Force a viewport refresh
+          xterm.refresh(0, xterm.rows - 1);
         }, 100) as unknown as number;
       };
 
       window.addEventListener("resize", handleResize);
+      // Also handle parent container resize
+      const resizeObserver = new ResizeObserver(() => handleResize());
+      resizeObserver.observe(terminalElement);
 
-      // Create cleanup function
+      // Update cleanup to include ResizeObserver
       const cleanup = () => {
         unlisten();
         window.removeEventListener("resize", handleResize);
+        resizeObserver.disconnect();
         xterm.dispose();
         invoke("destroy_pty", { ptyId });
         terminalElement.remove();
@@ -141,7 +213,7 @@ export class TabManager {
       this.tabs.set(tabId, tab);
 
       // Then create the element (which will use the correct size)
-      this.createTabElement(tabId);
+      this.createTabElement(tabId, profile?.name);
 
       // Finally activate the tab
       this.activateTab(tabId);
@@ -186,6 +258,18 @@ export class TabManager {
         this.config.terminal.scrollback === "infinite"
           ? Infinity
           : this.config.terminal.scrollback,
+      convertEol: false,
+      cursorStyle: "block",
+      cols: 80,
+      rows: 24,
+      lineHeight: 1,
+      fontWeight: "normal",
+      fontWeightBold: "bold",
+      allowTransparency: false,
+      scrollOnUserInput: true,
+      screenReaderMode: false,
+      macOptionIsMeta: true,
+      rightClickSelectsWord: false,
     });
 
     // Try WebGL addon
@@ -204,16 +288,18 @@ export class TabManager {
     return xterm;
   }
 
-  private createTabElement(tabId: string) {
+  private createTabElement(tabId: string, profileName?: string) {
     const tabElement = document.createElement("div");
     tabElement.className = "tab";
     tabElement.setAttribute("data-tab-id", tabId);
 
-    // Use current size for tab number since the tab is already in the map
     const tabNumber = this.tabs.size;
+    const title = profileName
+      ? `${profileName} ${tabNumber}`
+      : `Terminal ${tabNumber}`;
 
     tabElement.innerHTML = `
-      <span class="tab-title">Terminal ${tabNumber}</span>
+      <span class="tab-title">${title}</span>
       <button class="tab-close">×</button>
     `;
 
