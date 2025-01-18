@@ -1,0 +1,190 @@
+:root {
+  /* Default theme - we'll make these configurable later */
+  --terminal-bg: #1a1b26;
+  --terminal-fg: #a9b1d6;
+  --terminal-border: #24283b;
+  --terminal-header: #16161e;
+  --terminal-font: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+
+  /* Window control colors */
+  --close-btn: #ff5f57;
+  --minimize-btn: #febc2e;
+  --maximize-btn: #28c840;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--terminal-bg);
+  height: 100vh;
+  margin: 0;
+  font-family: var(--terminal-font);
+}
+
+.terminal-container {
+  width: 100%;
+  height: 100%;
+  background-color: var(--terminal-bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  background-color: var(--terminal-header);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: drag; /* Makes the header draggable */
+  justify-content: space-between;
+}
+
+.window-controls {
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag; /* Prevents buttons from inheriting drag behavior */
+}
+
+.control {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.close {
+  background-color: var(--close-btn);
+}
+.minimize {
+  background-color: var(--minimize-btn);
+}
+.maximize {
+  background-color: var(--maximize-btn);
+}
+
+.terminal {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.terminal-instance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.terminal-instance .xterm {
+  height: 100%;
+  padding: 8px;
+}
+
+.terminal-output {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.terminal-cursor {
+  position: absolute;
+  background-color: var(--terminal-cursor);
+  width: 2px;
+  height: 1.2em;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Custom scrollbar */
+.terminal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal::-webkit-scrollbar-track {
+  background: var(--terminal-bg);
+}
+
+.terminal::-webkit-scrollbar-thumb {
+  background: var(--terminal-border);
+  border-radius: 4px;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  margin-left: 16px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background-color: var(--terminal-bg);
+  border-radius: 4px;
+  color: var(--terminal-fg);
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.tab.active {
+  background-color: var(--terminal-header);
+  border-color: var(--terminal-border);
+}
+
+.tab-close {
+  background: none;
+  border: none;
+  color: var(--terminal-fg);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.6;
+}
+
+.tab-close:hover {
+  opacity: 1;
+}
+
+.new-tab {
+  background: none;
+  border: none;
+  color: var(--terminal-fg);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.6;
+}
+
+.new-tab:hover {
+  opacity: 1;
+}
+
+/* OS-specific window controls position */
+@media (not (prefers-color-scheme: dark)) {
+  .terminal-header {
+    flex-direction: row-reverse;
+  }
+
+  .tabs {
+    margin-left: 0;
+    margin-right: 16px;
+  }
+}
