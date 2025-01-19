@@ -190,14 +190,23 @@ body {
 }
 
 .profile-menu {
-  position: absolute;
+  position: fixed;
   background: var(--terminal-bg);
   border: 1px solid var(--terminal-border);
   border-radius: 4px;
   padding: 4px 0;
-  min-width: 150px;
-  z-index: 1000;
+  min-width: 200px;
+  z-index: 9999;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-menu-hint {
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--terminal-fg);
+  opacity: 0.7;
+  border-bottom: 1px solid var(--terminal-border);
+  margin-bottom: 4px;
 }
 
 .profile-item {
@@ -205,8 +214,40 @@ body {
   cursor: pointer;
   color: var(--terminal-fg);
   font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .profile-item:hover {
   background: var(--terminal-header);
+}
+
+.profile-shortcut {
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+.new-tab {
+  position: relative;
+}
+
+.new-tab::after {
+  content: "Ctrl+Click for profiles";
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--terminal-bg);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.new-tab:hover::after {
+  opacity: 1;
 }

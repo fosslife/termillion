@@ -28,13 +28,17 @@ export class TabManager {
     this.container = document.getElementById("terminal") as HTMLElement;
     this.tabsContainer = document.querySelector(".tabs") as HTMLElement;
     this.setupTabControls();
+    this.setupKeyboardShortcuts();
   }
 
   private setupTabControls() {
     // New tab button with profile selection
     const newTabBtn = document.querySelector(".new-tab");
     newTabBtn?.addEventListener("click", (e) => {
+      console.log("New tab clicked, ctrlKey:", e.ctrlKey); // Debug log
       if (e.ctrlKey) {
+        e.preventDefault(); // Prevent default action
+        e.stopPropagation(); // Stop event bubbling
         this.showProfileSelection(e);
       } else {
         this.createTab();
@@ -73,17 +77,44 @@ export class TabManager {
   }
 
   private async showProfileSelection(event: MouseEvent) {
+    console.log("Profile selection triggered"); // Debug log
+
     // Create and show profile menu
     const menu = document.createElement("div");
     menu.className = "profile-menu";
 
+    // Add tooltip/hint for keyboard shortcuts
+    const hint = document.createElement("div");
+    hint.className = "profile-menu-hint";
+    hint.textContent = "Tip: Use Alt+[1-9] for quick access";
+    menu.appendChild(hint);
+
     // Get profiles from config
     const profiles = this.config.profiles?.list || [];
+    console.log("Available profiles:", profiles); // Debug log
 
-    profiles.forEach((profile) => {
+    if (!profiles.length) {
+      const noProfiles = document.createElement("div");
+      noProfiles.className = "profile-item";
+      noProfiles.textContent = "No profiles configured";
+      menu.appendChild(noProfiles);
+    }
+
+    profiles.forEach((profile, index) => {
+      console.log("Creating menu item for profile:", profile.name); // Debug log
       const item = document.createElement("div");
       item.className = "profile-item";
-      item.textContent = profile.name;
+
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = profile.name;
+
+      const shortcutSpan = document.createElement("span");
+      shortcutSpan.className = "profile-shortcut";
+      shortcutSpan.textContent = `Alt+${index + 1}`;
+
+      item.appendChild(nameSpan);
+      item.appendChild(shortcutSpan);
+
       item.addEventListener("click", () => {
         this.createTab({ profile: profile.name });
         menu.remove();
@@ -92,9 +123,14 @@ export class TabManager {
     });
 
     // Position menu near the + button
+    const rect = (event.target as Element).getBoundingClientRect();
     menu.style.position = "absolute";
-    menu.style.top = `${event.clientY + 5}px`;
-    menu.style.left = `${event.clientX}px`;
+    menu.style.top = `${rect.bottom + 5}px`;
+    menu.style.left = `${rect.left}px`;
+    console.log("Menu position:", {
+      top: menu.style.top,
+      left: menu.style.left,
+    }); // Debug log
 
     // Close menu when clicking outside
     const closeMenu = (e: MouseEvent) => {
@@ -104,11 +140,20 @@ export class TabManager {
       }
     };
 
-    document.addEventListener("click", closeMenu);
+    // Add menu to DOM
     document.body.appendChild(menu);
+    console.log("Menu added to DOM"); // Debug log
+
+    // Add click listener after a small delay to prevent immediate closure
+    setTimeout(() => {
+      document.addEventListener("click", closeMenu);
+    }, 0);
   }
 
   async createTab(options?: { profile?: string }) {
+    // Close any open profile menu
+    document.querySelector(".profile-menu")?.remove();
+
     const tabId = crypto.randomUUID();
     const terminalElement = document.createElement("div");
     terminalElement.className = "terminal-instance";
@@ -123,7 +168,7 @@ export class TabManager {
         : null;
 
       // Create xterm instance
-      const xterm = await this.createTerminal(terminalElement);
+      const xterm = await this.createTerminal(terminalElement, profile?.name);
       const fitAddon = new FitAddon();
       xterm.loadAddon(fitAddon);
 
@@ -229,9 +274,14 @@ export class TabManager {
     }
   }
 
-  private async createTerminal(container: HTMLElement) {
+  private async createTerminal(container: HTMLElement, profile?: string) {
+    // Get profile-specific settings if available
+    const profileConfig = profile
+      ? this.config.profiles?.list.find((p) => p.name === profile)
+      : null;
+
     // Check primary font availability
-    let fontFamily = this.config.font.family;
+    let fontFamily = profileConfig?.font?.family || this.config.font.family;
     const isPrimaryFontAvailable = await isFontAvailable(fontFamily);
 
     if (!isPrimaryFontAvailable) {
@@ -243,15 +293,21 @@ export class TabManager {
       }
     }
 
+    // Merge profile theme with default theme
+    const theme = {
+      ...this.config.theme,
+      ...(profileConfig?.theme || {}),
+    };
+
     const xterm = new XTerm({
       cursorBlink: true,
-      fontSize: this.config.font.size,
+      fontSize: profileConfig?.font?.size || this.config.font.size,
       fontFamily: `${fontFamily}, ${this.config.font.fallback_family}`,
       theme: {
-        background: this.config.theme.background,
-        foreground: this.config.theme.foreground,
-        cursor: this.config.theme.cursor,
-        selectionBackground: this.config.theme.selection,
+        background: theme.background,
+        foreground: theme.foreground,
+        cursor: theme.cursor,
+        selectionBackground: theme.selection,
       },
       allowProposedApi: true,
       scrollback:
@@ -373,5 +429,22 @@ export class TabManager {
   cleanup() {
     this.tabs.forEach((tab) => tab.cleanup());
     this.tabs.clear();
+  }
+
+  private setupKeyboardShortcuts() {
+    document.addEventListener("keydown", (e) => {
+      // Alt + number for quick profile access
+      if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 9) {
+          const profiles = this.config.profiles?.list || [];
+          const profile = profiles[num - 1];
+          if (profile) {
+            e.preventDefault();
+            this.createTab({ profile: profile.name });
+          }
+        }
+      }
+    });
   }
 }
