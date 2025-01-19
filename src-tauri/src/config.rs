@@ -23,10 +23,35 @@ pub struct FontConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThemeConfig {
-    pub background: String,
-    pub foreground: String,
-    pub cursor: String,
-    pub selection: String,
+    // Basic colors
+    pub background: String, // Terminal background
+    pub foreground: String, // Default text color
+    pub cursor: String,     // Cursor color
+    pub selection: String,  // Selected text background
+
+    // UI elements
+    pub border: Option<String>, // Window/tab borders
+    pub header: Option<String>, // Title bar background
+
+    // Standard ANSI Colors (0-7)
+    pub black: Option<String>,   // ANSI 0 - Usually used for dark elements
+    pub red: Option<String>,     // ANSI 1 - Error messages
+    pub green: Option<String>,   // ANSI 2 - Success messages
+    pub yellow: Option<String>,  // ANSI 3 - Warnings/modified files
+    pub blue: Option<String>,    // ANSI 4 - Information/special items
+    pub magenta: Option<String>, // ANSI 5 - Debug messages/special items
+    pub cyan: Option<String>,    // ANSI 6 - Info/path segments
+    pub white: Option<String>,   // ANSI 7 - Default foreground fallback
+
+    // Bright ANSI Colors (8-15)
+    pub bright_black: Option<String>,   // ANSI 8  - Grey/comments
+    pub bright_red: Option<String>,     // ANSI 9  - Lighter red
+    pub bright_green: Option<String>,   // ANSI 10 - Lighter green
+    pub bright_yellow: Option<String>,  // ANSI 11 - Lighter yellow
+    pub bright_blue: Option<String>,    // ANSI 12 - Lighter blue
+    pub bright_magenta: Option<String>, // ANSI 13 - Lighter magenta
+    pub bright_cyan: Option<String>,    // ANSI 14 - Lighter cyan
+    pub bright_white: Option<String>,   // ANSI 15 - Bright white
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -90,6 +115,28 @@ impl Default for Config {
                 foreground: "#a9b1d6".into(),
                 cursor: "#c0caf5".into(),
                 selection: "#283457".into(),
+                border: Some("#24283b".into()),
+                header: Some("#16161e".into()),
+
+                // ANSI colors
+                black: Some("#32344a".into()),
+                red: Some("#f7768e".into()),
+                green: Some("#9ece6a".into()),
+                yellow: Some("#e0af68".into()),
+                blue: Some("#7aa2f7".into()),
+                magenta: Some("#ad8ee6".into()),
+                cyan: Some("#449dab".into()),
+                white: Some("#787c99".into()),
+
+                // Bright variants
+                bright_black: Some("#444b6a".into()),
+                bright_red: Some("#ff7a93".into()),
+                bright_green: Some("#b9f27c".into()),
+                bright_yellow: Some("#ff9e64".into()),
+                bright_blue: Some("#7da6ff".into()),
+                bright_magenta: Some("#bb9af7".into()),
+                bright_cyan: Some("#0db9d7".into()),
+                bright_white: Some("#acb0d0".into()),
             },
             shell: ShellConfig {
                 windows: "powershell.exe".into(),
