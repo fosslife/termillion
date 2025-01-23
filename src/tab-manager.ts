@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isFontAvailable, loadGoogleFont } from "./font-checker";
 import { TerminalConfig } from "./config";
+import { GoldenLayout, ComponentContainer, LayoutConfig } from "golden-layout";
 
 interface Tab {
   id: string;
@@ -16,17 +17,63 @@ interface Tab {
   cleanup: () => void;
 }
 
+interface Split {
+  id: string;
+  direction: "horizontal" | "vertical";
+  terminals: Tab[];
+  container: HTMLElement;
+}
+
 export class TabManager {
   private tabs: Map<string, Tab> = new Map();
+  private splits: Map<string, Split> = new Map();
   private activeTabId: string | null = null;
   private config: TerminalConfig;
   private container: HTMLElement;
   private tabsContainer: HTMLElement;
+  private layout: GoldenLayout;
 
   constructor(config: TerminalConfig) {
     this.config = config;
     this.container = document.getElementById("terminal") as HTMLElement;
     this.tabsContainer = document.querySelector(".tabs") as HTMLElement;
+
+    // Initialize GoldenLayout with a proper config
+    const layoutConfig = {
+      settings: {
+        showPopoutIcon: false,
+        showMaximiseIcon: false,
+        showCloseIcon: false,
+      },
+      content: [
+        {
+          type: "row",
+          content: [],
+        },
+      ],
+    };
+
+    this.layout = new GoldenLayout(this.container);
+
+    // Register terminal component before loading layout
+    this.layout.registerComponent("terminal", (container, state) => {
+      const terminalElement = document.createElement("div");
+      terminalElement.className = "terminal-instance";
+      container.getElement().append(terminalElement);
+
+      // Create terminal instance
+      this.createTerminalInstance(terminalElement).then((terminal) => {
+        this.tabs.set(state.tabId, terminal);
+      });
+    });
+
+    // Initialize layout after component registration
+    this.layout.loadLayout(layoutConfig);
+
+    window.addEventListener("resize", () => {
+      this.layout.updateSize();
+    });
+
     this.setupTabControls();
     this.setupKeyboardShortcuts();
   }
@@ -151,127 +198,194 @@ export class TabManager {
   }
 
   async createTab(options?: { profile?: string }) {
-    // Close any open profile menu
-    document.querySelector(".profile-menu")?.remove();
-
     const tabId = crypto.randomUUID();
-    const terminalElement = document.createElement("div");
-    terminalElement.className = "terminal-instance";
-    terminalElement.style.display = "none";
-    this.container.appendChild(terminalElement);
 
     try {
-      // Get profile-specific command
-      const profileName = options?.profile || this.config.profiles?.default;
-      const profile = profileName
-        ? this.config.profiles?.list.find((p) => p.name === profileName)
-        : null;
-
-      // Create xterm instance
-      const xterm = await this.createTerminal(terminalElement, profile?.name);
-      const fitAddon = new FitAddon();
-      xterm.loadAddon(fitAddon);
-
-      // Fit before creating PTY to get correct dimensions
-      fitAddon.fit();
-
-      // Create PTY with profile command if available
-      const ptyId = (await invoke("create_pty", {
-        cwd: "~",
-        rows: xterm.rows,
-        cols: xterm.cols,
-        command: profile?.command,
-        args: profile?.args,
-      })) as string;
-
-      // Set up event listeners
-      const unlisten = await getCurrentWindow().listen(
-        `pty://output/${ptyId}`,
-        (event: any) => {
-          if (typeof event.payload === "string") {
-            const isUserScrolled = xterm.buffer.active.viewportY > 0;
-            const currentLine = xterm.buffer.active.cursorY;
-            xterm.write(event.payload);
-
-            // Only auto-scroll if we're near the bottom
-            if (!isUserScrolled || currentLine >= xterm.rows - 3) {
-              xterm.scrollToBottom();
-            }
-          }
-        }
-      );
-
-      // Handle input
-      xterm.onData((data) => {
-        invoke("write_pty", {
-          ptyId,
-          data,
-        });
-      });
-
-      // Handle resize
-      let resizeTimeout: number;
-      const handleResize = () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          fitAddon.fit();
-          // Get the new dimensions after fit
-          const dims = {
-            rows: xterm.rows,
-            cols: xterm.cols,
-          };
-          invoke("resize_pty", {
-            ptyId,
-            ...dims,
-          });
-          // Force a viewport refresh
-          xterm.refresh(0, xterm.rows - 1);
-        }, 100) as unknown as number;
+      // Create component config
+      const newItemConfig = {
+        type: "component",
+        componentName: "terminal",
+        componentState: { tabId, profile: options?.profile },
       };
 
-      window.addEventListener("resize", handleResize);
-      // Also handle parent container resize
-      const resizeObserver = new ResizeObserver(() => handleResize());
-      resizeObserver.observe(terminalElement);
+      // Get root content item or create new row
+      if (!this.layout.root.contentItems.length) {
+        // Create new row
+        const rowConfig = {
+          type: "row",
+          content: [newItemConfig],
+        };
+        this.layout.addItem(rowConfig);
+      } else {
+        // Add to existing row
+        const rootRow = this.layout.root.contentItems[0];
+        this.layout.addItem(newItemConfig, rootRow);
+      }
 
-      // Update cleanup to include ResizeObserver
-      const cleanup = () => {
-        unlisten();
-        window.removeEventListener("resize", handleResize);
-        resizeObserver.disconnect();
-        xterm.dispose();
-        invoke("destroy_pty", { ptyId });
-        terminalElement.remove();
-      };
-
-      // Create tab object and add to map before creating the element
-      const tab: Tab = {
-        id: tabId,
-        ptyId,
-        xterm,
-        fitAddon,
-        element: terminalElement,
-        cleanup,
-      };
-
-      // Add to map first
-      this.tabs.set(tabId, tab);
-
-      // Then create the element (which will use the correct size)
-      this.createTabElement(tabId, profile?.name);
-
-      // Finally activate the tab
+      this.createTabElement(tabId, options?.profile);
       this.activateTab(tabId);
 
-      // Initial fit
-      setTimeout(() => {
-        fitAddon.fit();
-        xterm.focus();
-      }, 0);
+      return tabId;
     } catch (error) {
       console.error("Failed to create tab:", error);
-      terminalElement.remove();
+      return null;
     }
+  }
+
+  async splitPane(sourceId: string, direction: "horizontal" | "vertical") {
+    const sourceTab = this.tabs.get(sourceId);
+    if (!sourceTab) return;
+
+    const sourceContainer = this.findComponentContainer(sourceId);
+    if (!sourceContainer) return;
+
+    const newTabId = crypto.randomUUID();
+
+    // Create new split configuration
+    const splitConfig = {
+      type: direction === "horizontal" ? "row" : "column",
+      content: [
+        {
+          type: "component",
+          componentName: "terminal",
+          componentState: { tabId: newTabId },
+        },
+      ],
+    };
+
+    // Add the new split using layout's addItem method
+    this.layout.addItem(splitConfig, sourceContainer.parent);
+    this.layout.updateSize();
+  }
+
+  private findComponentContainer(terminalId: string): any {
+    const findInItem = (item: any): any => {
+      if (item.type === "component") {
+        if (item.config.componentState?.tabId === terminalId) {
+          return item;
+        }
+      }
+
+      if (item.contentItems) {
+        for (const child of item.contentItems) {
+          const found = findInItem(child);
+          if (found) return found;
+        }
+      }
+
+      return null;
+    };
+
+    return findInItem(this.layout.root);
+  }
+
+  private createTabElement(tabId: string, profileName?: string) {
+    const tabElement = document.createElement("div");
+    tabElement.className = "tab";
+    tabElement.setAttribute("data-tab-id", tabId);
+
+    const tabNumber = this.tabs.size;
+    const title = profileName
+      ? `${profileName} ${tabNumber}`
+      : `Terminal ${tabNumber}`;
+
+    tabElement.innerHTML = `
+      <span class="tab-title">${title}</span>
+      <button class="tab-close">×</button>
+    `;
+
+    // Insert before the new tab button
+    const newTabBtn = this.tabsContainer.querySelector(".new-tab");
+    if (newTabBtn) {
+      this.tabsContainer.insertBefore(tabElement, newTabBtn);
+    }
+  }
+
+  activateTab(tabId: string) {
+    console.log("Activating tab:", tabId); // Add debug logging
+    const tab = this.tabs.get(tabId);
+    if (!tab) {
+      console.warn("Tab not found:", tabId);
+      return;
+    }
+
+    // Hide all terminals
+    this.tabs.forEach((t) => {
+      t.element.style.display = "none";
+    });
+
+    // Show selected terminal
+    tab.element.style.display = "block";
+
+    // Update tab classes
+    document.querySelectorAll(".tab").forEach((el) => {
+      el.classList.remove("active");
+    });
+
+    const activeTabElement = document.querySelector(
+      `.tab[data-tab-id="${tabId}"]`
+    );
+    if (activeTabElement) {
+      activeTabElement.classList.add("active");
+    } else {
+      console.warn("Active tab element not found:", tabId);
+    }
+
+    this.activeTabId = tabId;
+    tab.xterm.focus();
+    tab.fitAddon.fit();
+  }
+
+  closeTab(tabId: string) {
+    const tab = this.tabs.get(tabId);
+    if (!tab) return;
+
+    // Clean up the tab
+    tab.cleanup();
+    this.tabs.delete(tabId);
+
+    // Remove tab element
+    document.querySelector(`.tab[data-tab-id="${tabId}"]`)?.remove();
+
+    // If this was the active tab, activate another one
+    if (this.activeTabId === tabId) {
+      const nextTab = this.tabs.values().next().value;
+      if (nextTab) {
+        this.activateTab(nextTab.id);
+      }
+    }
+
+    // If no tabs left, create a new one
+    if (this.tabs.size === 0) {
+      this.createTab();
+    }
+  }
+
+  cleanup() {
+    this.tabs.forEach((tab) => tab.cleanup());
+    this.tabs.clear();
+    this.layout.destroy();
+  }
+
+  private setupKeyboardShortcuts() {
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.shiftKey) {
+        const activeTab = this.getActiveTab();
+        if (!activeTab) return;
+
+        if (e.key === "[") {
+          e.preventDefault();
+          this.splitPane(activeTab.id, "horizontal");
+        } else if (e.key === "]") {
+          e.preventDefault();
+          this.splitPane(activeTab.id, "vertical");
+        }
+      }
+    });
+  }
+
+  private getActiveTab(): Tab | undefined {
+    return this.tabs.get(this.activeTabId);
   }
 
   private async createTerminal(container: HTMLElement, profile?: string) {
@@ -362,107 +476,112 @@ export class TabManager {
     return xterm;
   }
 
-  private createTabElement(tabId: string, profileName?: string) {
-    const tabElement = document.createElement("div");
-    tabElement.className = "tab";
-    tabElement.setAttribute("data-tab-id", tabId);
+  private async createTerminalInstance(
+    container: HTMLElement,
+    options?: { profile?: string }
+  ): Promise<Tab> {
+    try {
+      // Create xterm instance
+      const xterm = await this.createTerminal(container, options?.profile);
+      const fitAddon = new FitAddon();
+      xterm.loadAddon(fitAddon);
 
-    const tabNumber = this.tabs.size;
-    const title = profileName
-      ? `${profileName} ${tabNumber}`
-      : `Terminal ${tabNumber}`;
+      // Fit before creating PTY to get correct dimensions
+      fitAddon.fit();
 
-    tabElement.innerHTML = `
-      <span class="tab-title">${title}</span>
-      <button class="tab-close">×</button>
-    `;
+      // Get profile-specific command
+      const profileName = options?.profile || this.config.profiles?.default;
+      const profile = profileName
+        ? this.config.profiles?.list.find((p) => p.name === profileName)
+        : null;
 
-    // Insert before the new tab button
-    const newTabBtn = this.tabsContainer.querySelector(".new-tab");
-    if (newTabBtn) {
-      this.tabsContainer.insertBefore(tabElement, newTabBtn);
-    }
-  }
+      // Create PTY with profile command if available
+      const ptyId = (await invoke("create_pty", {
+        cwd: "~",
+        rows: xterm.rows,
+        cols: xterm.cols,
+        command: profile?.command,
+        args: profile?.args,
+      })) as string;
 
-  activateTab(tabId: string) {
-    console.log("Activating tab:", tabId); // Add debug logging
-    const tab = this.tabs.get(tabId);
-    if (!tab) {
-      console.warn("Tab not found:", tabId);
-      return;
-    }
+      // Set up event listeners
+      const unlisten = await getCurrentWindow().listen(
+        `pty://output/${ptyId}`,
+        (event: any) => {
+          if (typeof event.payload === "string") {
+            const isUserScrolled = xterm.buffer.active.viewportY > 0;
+            const currentLine = xterm.buffer.active.cursorY;
+            xterm.write(event.payload);
 
-    // Hide all terminals
-    this.tabs.forEach((t) => {
-      t.element.style.display = "none";
-    });
-
-    // Show selected terminal
-    tab.element.style.display = "block";
-
-    // Update tab classes
-    document.querySelectorAll(".tab").forEach((el) => {
-      el.classList.remove("active");
-    });
-
-    const activeTabElement = document.querySelector(
-      `.tab[data-tab-id="${tabId}"]`
-    );
-    if (activeTabElement) {
-      activeTabElement.classList.add("active");
-    } else {
-      console.warn("Active tab element not found:", tabId);
-    }
-
-    this.activeTabId = tabId;
-    tab.xterm.focus();
-    tab.fitAddon.fit();
-  }
-
-  closeTab(tabId: string) {
-    const tab = this.tabs.get(tabId);
-    if (!tab) return;
-
-    // Clean up the tab
-    tab.cleanup();
-    this.tabs.delete(tabId);
-
-    // Remove tab element
-    document.querySelector(`.tab[data-tab-id="${tabId}"]`)?.remove();
-
-    // If this was the active tab, activate another one
-    if (this.activeTabId === tabId) {
-      const nextTab = this.tabs.values().next().value;
-      if (nextTab) {
-        this.activateTab(nextTab.id);
-      }
-    }
-
-    // If no tabs left, create a new one
-    if (this.tabs.size === 0) {
-      this.createTab();
-    }
-  }
-
-  cleanup() {
-    this.tabs.forEach((tab) => tab.cleanup());
-    this.tabs.clear();
-  }
-
-  private setupKeyboardShortcuts() {
-    document.addEventListener("keydown", (e) => {
-      // Alt + number for quick profile access
-      if (e.altKey && !e.ctrlKey && !e.shiftKey) {
-        const num = parseInt(e.key);
-        if (num >= 1 && num <= 9) {
-          const profiles = this.config.profiles?.list || [];
-          const profile = profiles[num - 1];
-          if (profile) {
-            e.preventDefault();
-            this.createTab({ profile: profile.name });
+            // Only auto-scroll if we're near the bottom
+            if (!isUserScrolled || currentLine >= xterm.rows - 3) {
+              xterm.scrollToBottom();
+            }
           }
         }
-      }
-    });
+      );
+
+      // Handle input
+      xterm.onData((data) => {
+        invoke("write_pty", {
+          ptyId,
+          data,
+        });
+      });
+
+      // Handle resize
+      let resizeTimeout: number;
+      const handleResize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          fitAddon.fit();
+          // Get the new dimensions after fit
+          const dims = {
+            rows: xterm.rows,
+            cols: xterm.cols,
+          };
+          invoke("resize_pty", {
+            ptyId,
+            ...dims,
+          });
+          // Force a viewport refresh
+          xterm.refresh(0, xterm.rows - 1);
+        }, 100) as unknown as number;
+      };
+
+      window.addEventListener("resize", handleResize);
+      // Also handle parent container resize
+      const resizeObserver = new ResizeObserver(() => handleResize());
+      resizeObserver.observe(container);
+
+      // Update cleanup to include ResizeObserver
+      const cleanup = () => {
+        unlisten();
+        window.removeEventListener("resize", handleResize);
+        resizeObserver.disconnect();
+        xterm.dispose();
+        invoke("destroy_pty", { ptyId });
+      };
+
+      const terminal: Tab = {
+        id: crypto.randomUUID(),
+        ptyId,
+        xterm,
+        fitAddon,
+        element: container,
+        cleanup,
+      };
+
+      // Initial fit
+      setTimeout(() => {
+        fitAddon.fit();
+        xterm.focus();
+      }, 0);
+
+      return terminal;
+    } catch (error) {
+      console.error("Failed to create terminal instance:", error);
+      throw error;
+    }
   }
 }

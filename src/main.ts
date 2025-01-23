@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TerminalConfig } from "./config";
 import { TabManager } from "./tab-manager";
+import { LayoutManager } from "./layout-manager";
 
 const appWindow = getCurrentWindow();
 let currentConfig: TerminalConfig;
@@ -14,19 +15,16 @@ window.addEventListener("DOMContentLoaded", () => {
   const maximizeBtn = document.querySelector(".maximize");
 
   closeBtn?.addEventListener("click", async () => {
-    // First cleanup tabs
-    if (tabManager) {
-      tabManager.cleanup();
-    }
-    // Then close the window
     await appWindow.close();
   });
   minimizeBtn?.addEventListener("click", () => appWindow.minimize());
   maximizeBtn?.addEventListener("click", () => appWindow.toggleMaximize());
 
-  // Initialize terminal
+  // Initialize layout manager for testing
+  new LayoutManager();
+
+  // Initialize config (we'll integrate this with layout manager later)
   initConfig().then(() => {
-    initTerminal();
     applyConfig();
   });
 });

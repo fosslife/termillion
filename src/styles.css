@@ -15,6 +15,11 @@
   --scrollbar-bg: var(--terminal-bg);
   --scrollbar-thumb: var(--terminal-border);
   --scrollbar-thumb-hover: var(--terminal-fg);
+
+  --window-bg: #1a1b26;
+  --window-fg: #a9b1d6;
+  --window-border: #24283b;
+  --window-header: #16161e;
 }
 
 * {
@@ -26,12 +31,103 @@
 }
 
 body {
-  background-color: var(--terminal-bg);
+  background-color: var(--window-bg);
   height: 100vh;
   margin: 0;
+  overflow: hidden;
   font-family: var(--terminal-font);
   /* Prevent content shift when scrollbar appears */
   scrollbar-gutter: stable;
+}
+
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.window-header {
+  height: 40px; /* Explicit height */
+  background-color: var(--window-header);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  -webkit-app-region: drag;
+}
+
+.window-controls {
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.control {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.close {
+  background-color: #ff5f57;
+}
+.minimize {
+  background-color: #febc2e;
+}
+.maximize {
+  background-color: #28c840;
+}
+
+.tabs {
+  flex: 1;
+  margin-left: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.new-tab {
+  background: none;
+  border: none;
+  color: var(--window-fg);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  -webkit-app-region: no-drag;
+}
+
+#layout-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0; /* Important for flex layout */
+  height: calc(100vh - 40px); /* Subtract header height */
+  width: 100%;
+  background: var(--window-bg);
+  display: flex;
+}
+
+/* Override some GoldenLayout styles */
+.lm_content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
+  background: var(--window-bg);
+}
+
+.lm_splitter {
+  background: var(--window-border);
+}
+
+.lm_splitter:hover {
+  background: var(--window-fg);
 }
 
 .terminal-container {
@@ -52,42 +148,13 @@ body {
   justify-content: space-between;
 }
 
-.window-controls {
-  display: flex;
-  gap: 8px;
-  -webkit-app-region: no-drag; /* Prevents buttons from inheriting drag behavior */
-}
-
-.control {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-}
-
-.close {
-  background-color: var(--close-btn);
-}
-.minimize {
-  background-color: var(--minimize-btn);
-}
-.maximize {
-  background-color: var(--maximize-btn);
-}
-
-.terminal {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-}
-
 .terminal-instance {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .terminal-instance .xterm {
@@ -153,14 +220,6 @@ body {
   background-color: transparent;
 }
 
-.tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  margin-left: 16px;
-}
-
 .tab {
   display: flex;
   align-items: center;
@@ -190,20 +249,6 @@ body {
 }
 
 .tab-close:hover {
-  opacity: 1;
-}
-
-.new-tab {
-  background: none;
-  border: none;
-  color: var(--terminal-fg);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px 8px;
-  opacity: 0.6;
-}
-
-.new-tab:hover {
   opacity: 1;
 }
 
@@ -280,4 +325,72 @@ body {
 
 .new-tab:hover::after {
   opacity: 1;
+}
+
+/* Add new styles for split functionality */
+.terminal-split-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.terminal-split {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.terminal-split.horizontal {
+  flex-direction: column;
+}
+
+.terminal-split.vertical {
+  flex-direction: row;
+}
+
+.split-handle {
+  background-color: var(--terminal-border);
+  transition: background-color 0.2s;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.split-handle:hover {
+  background-color: var(--terminal-fg);
+}
+
+.split-handle.vertical {
+  cursor: col-resize;
+  width: 4px;
+}
+
+.split-handle.horizontal {
+  cursor: row-resize;
+  height: 4px;
+}
+
+/* Add Golden Layout styles */
+.lm_root {
+  width: 100%;
+  height: 100%;
+}
+
+.lm_goldenlayout {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.lm_item {
+  border: none;
+}
+
+.terminal-instance {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
