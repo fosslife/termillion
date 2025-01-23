@@ -9,6 +9,7 @@ import { homeDir } from "@tauri-apps/api/path";
 import "@xterm/xterm/css/xterm.css";
 import { isFontAvailable, loadGoogleFont } from "../font-checker";
 import { Config } from "../config";
+import { Model, Actions } from "flexlayout-react";
 
 // Debug helper
 const DEBUG = true;
@@ -18,9 +19,10 @@ const log = (...args: any[]) => {
 
 interface TerminalProps {
   id: string;
+  model: Model;
 }
 
-const Terminal: React.FC<TerminalProps> = ({ id }) => {
+const Terminal: React.FC<TerminalProps> = ({ id, model }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -32,7 +34,8 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
     let mounted = true;
     let xterm: XTerm | null = null;
     let fitAddon: FitAddon | null = null;
-    let unlistenCallback: (() => void) | null = null;
+    let unlistenOutput: (() => void) | null = null;
+    let unlistenExit: (() => void) | null = null;
 
     const initialize = async () => {
       if (!terminalRef.current || xtermRef.current) return;
@@ -118,6 +121,28 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
 
         ptyIdRef.current = ptyId;
 
+        // Listen for PTY exit
+        const listenExit = await getCurrentWindow().listen(
+          `pty://exit/${ptyId}`,
+          async () => {
+            // Close the tab when PTY exits
+            const node = model.getNodeById(id);
+            if (node) {
+              model.doAction(Actions.deleteTab(id));
+            }
+          }
+        );
+        unlistenExit = listenExit;
+
+        // Listen for PTY output
+        const listenOutput = await getCurrentWindow().listen(
+          `pty://output/${ptyId}`,
+          (event: any) => {
+            xterm?.write(event.payload);
+          }
+        );
+        unlistenOutput = listenOutput;
+
         // Set up data handlers
         xterm.onData((data) => {
           if (ptyIdRef.current) {
@@ -127,14 +152,6 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
             }).catch((e) => log("Write error:", e));
           }
         });
-
-        const unlisten = await getCurrentWindow().listen(
-          `pty://output/${ptyId}`,
-          (event: any) => {
-            xterm?.write(event.payload);
-          }
-        );
-        unlistenCallback = unlisten;
 
         // Handle resize
         const handleResize = () => {
@@ -164,8 +181,11 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
     return () => {
       mounted = false;
 
-      if (unlistenCallback) {
-        unlistenCallback();
+      if (unlistenOutput) {
+        unlistenOutput();
+      }
+      if (unlistenExit) {
+        unlistenExit();
       }
 
       if (ptyIdRef.current) {
@@ -182,7 +202,7 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
 
       window.removeEventListener("resize", () => {});
     };
-  }, [id]);
+  }, [id, model]);
 
   return (
     <div

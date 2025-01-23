@@ -93,10 +93,15 @@ impl PtyManager {
             let mut buffer = [0u8; 4096];
             loop {
                 match reader.read(&mut buffer) {
-                    Ok(0) => break, // EOF
+                    Ok(0) => {
+                        // EOF - PTY has closed
+                        window_clone
+                            .emit(&format!("pty://exit/{}", pty_id_clone), ())
+                            .unwrap_or_else(|e| eprintln!("Failed to emit PTY exit: {}", e));
+                        break;
+                    }
                     Ok(n) => {
                         let output = String::from_utf8_lossy(&buffer[..n]);
-                        // Send raw bytes to maintain control sequences
                         window_clone
                             .emit(
                                 &format!("pty://output/{}", pty_id_clone),

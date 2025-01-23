@@ -214,7 +214,7 @@ const App: React.FC = () => {
         terminalsRef.current.add(id);
       }
       log("Creating terminal component for:", id);
-      return <Terminal key={id} id={id} />;
+      return <Terminal key={id} id={id} model={model} />;
     }
 
     log("Warning: Unknown component type:", component);
@@ -227,7 +227,14 @@ const App: React.FC = () => {
       <Layout
         model={model}
         factory={factory}
-        onModelChange={() => {
+        onModelChange={(model) => {
+          // Remove terminal from tracking when its tab is closed
+          const currentIds = new Set(model.visitNodes((node) => node.getId()));
+          for (const id of terminalsRef.current) {
+            if (!currentIds.has(id)) {
+              terminalsRef.current.delete(id);
+            }
+          }
           log("Model changed:", {
             terminals: Array.from(terminalsRef.current),
             modelJson: model.toJson(),
