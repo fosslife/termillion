@@ -1,191 +1,138 @@
 :root {
-  /* Default theme - we'll make these configurable later */
+  /* Theme variables */
   --terminal-bg: #1a1b26;
   --terminal-fg: #a9b1d6;
   --terminal-border: #24283b;
   --terminal-header: #16161e;
   --terminal-font: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
 
-  /* Window control colors */
+  /* Window controls */
   --close-btn: #ff5f57;
   --minimize-btn: #febc2e;
   --maximize-btn: #28c840;
 
-  /* Add scrollbar colors to theme variables */
+  /* Scrollbar */
   --scrollbar-bg: var(--terminal-bg);
   --scrollbar-thumb: var(--terminal-border);
   --scrollbar-thumb-hover: var(--terminal-fg);
 
-  --window-bg: #1a1b26;
-  --window-fg: #a9b1d6;
-  --window-border: #24283b;
-  --window-header: #16161e;
+  /* Layout */
+  --terminal-padding-x: 12px; /* Default horizontal padding */
+  --terminal-padding-y: 8px; /* Default vertical padding */
 }
 
+/* Base styles */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
 }
 
 body {
-  background-color: var(--window-bg);
+  background-color: var(--terminal-bg);
   height: 100vh;
   margin: 0;
   overflow: hidden;
   font-family: var(--terminal-font);
-  /* Prevent content shift when scrollbar appears */
-  scrollbar-gutter: stable;
 }
 
-.app-container {
-  width: 100vw;
+/* App layout */
+.app {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  position: relative;
+  background: var(--terminal-bg);
 }
 
-.window-header {
-  height: 40px; /* Explicit height */
-  background-color: var(--window-header);
-  padding: 8px;
+/* Terminal container */
+.terminal-container {
+  height: 100%;
+  width: 100%;
+  background: var(--terminal-bg);
+  overflow: hidden;
+  padding: var(--terminal-padding-y) var(--terminal-padding-x);
+}
+
+/* Window controls */
+.titlebar {
+  height: 30px;
+  min-height: 30px; /* Prevent shrinking */
+  background: var(--terminal-header);
+  user-select: none;
+  -webkit-user-select: none;
   display: flex;
-  align-items: center;
+  justify-content: flex-end;
   -webkit-app-region: drag;
 }
 
-.window-controls {
-  display: flex;
-  gap: 8px;
-  -webkit-app-region: no-drag;
-}
-
-.control {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-}
-
-.close {
-  background-color: #ff5f57;
-}
-.minimize {
-  background-color: #febc2e;
-}
-.maximize {
-  background-color: #28c840;
-}
-
-.tabs {
+/* Main content area */
+.flexlayout__layout {
   flex: 1;
-  margin-left: 16px;
-  display: flex;
-  align-items: center;
-}
-
-.new-tab {
-  background: none;
-  border: none;
-  color: var(--window-fg);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px 8px;
-  -webkit-app-region: no-drag;
-}
-
-#layout-container {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
   min-height: 0; /* Important for flex layout */
-  height: calc(100vh - 40px); /* Subtract header height */
-  width: 100%;
-  background: var(--window-bg);
-  display: flex;
-}
-
-/* Override some GoldenLayout styles */
-.lm_content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100% !important;
-  height: 100% !important;
-  background: var(--window-bg);
-}
-
-.lm_splitter {
-  background: var(--window-border);
-}
-
-.lm_splitter:hover {
-  background: var(--window-fg);
-}
-
-.terminal-container {
-  width: 100%;
-  height: 100%;
-  background-color: var(--terminal-bg);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.terminal-header {
-  background-color: var(--terminal-header);
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  -webkit-app-region: drag; /* Makes the header draggable */
-  justify-content: space-between;
-}
-
-.terminal-instance {
   position: relative;
+}
+
+/* FlexLayout overrides */
+.flexlayout__layout {
   flex: 1;
-  min-width: 0;
-  min-height: 0;
-  width: 100%;
+  overflow: hidden;
+}
+
+.flexlayout__tab {
+  background: var(--terminal-bg);
   height: 100%;
+  overflow: hidden;
 }
 
-.terminal-instance .xterm {
-  height: 100%;
-  padding: 8px;
+/* Splitter styling */
+.flexlayout__splitter {
+  background-color: var(--terminal-border);
+  position: relative;
 }
 
-.terminal-output {
-  white-space: pre-wrap;
-  word-wrap: break-word;
+.flexlayout__splitter--horizontal {
+  height: 4px;
+  margin: 2px 0;
 }
 
-.terminal-cursor {
-  position: absolute;
-  background-color: var(--terminal-cursor);
-  width: 2px;
-  height: 1.2em;
-  animation: blink 1s step-end infinite;
+.flexlayout__splitter--vertical {
+  width: 4px;
+  margin: 0 2px;
 }
 
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
+/* Tab header styling */
+.flexlayout__tabset_tabbar_outer {
+  background: var(--terminal-header);
+  border-bottom: 1px solid var(--terminal-border);
+  height: 32px;
+  display: none; /* Hidden by default */
 }
 
-/* Custom scrollbar */
+/* Show tab bar when there are multiple tabs */
+.flexlayout__tabset:not(:only-child) .flexlayout__tabset_tabbar_outer {
+  display: block;
+}
+
+.flexlayout__tab_button {
+  background: var(--terminal-bg);
+  color: var(--terminal-fg);
+  padding: 4px 8px;
+  border: none;
+  font-family: var(--terminal-font);
+  font-size: 12px;
+}
+
+.flexlayout__tab_button--selected {
+  background: var(--terminal-header);
+  border-bottom: 2px solid var(--terminal-fg);
+}
+
+.flexlayout__tab_button:hover {
+  background: var(--terminal-header);
+}
+
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -205,192 +152,50 @@ body {
   background: var(--scrollbar-thumb-hover);
 }
 
-::-webkit-scrollbar-corner {
-  background: var(--scrollbar-bg);
-}
-
-/* For GTK WebKit */
-::-webkit-scrollbar-track-piece {
-  background-color: var(--scrollbar-bg);
-}
-
-/* Hide scrollbar when not hovering (optional) */
-::-webkit-scrollbar {
-  width: 8px;
-  background-color: transparent;
-}
-
-.tab {
-  display: flex;
+/* Window control buttons */
+.titlebar-button {
+  display: inline-flex;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  background-color: var(--terminal-bg);
-  border-radius: 4px;
-  color: var(--terminal-fg);
-  font-size: 12px;
+  width: 30px;
+  height: 30px;
+  user-select: none;
+  -webkit-user-select: none;
   cursor: pointer;
-  border: 1px solid transparent;
+  -webkit-app-region: no-drag;
 }
 
-.tab.active {
-  background-color: var(--terminal-header);
-  border-color: var(--terminal-border);
+.titlebar-button:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.tab-close {
-  background: none;
-  border: none;
-  color: var(--terminal-fg);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 0 4px;
-  opacity: 0.6;
+/* Window control buttons */
+.titlebar-button.close {
+  background: var(--close-btn);
 }
 
-.tab-close:hover {
-  opacity: 1;
+.titlebar-button.minimize {
+  background: var(--minimize-btn);
 }
 
-/* OS-specific window controls position */
-@media (not (prefers-color-scheme: dark)) {
-  .terminal-header {
-    flex-direction: row-reverse;
-  }
-
-  .tabs {
-    margin-left: 0;
-    margin-right: 16px;
-  }
+.titlebar-button.maximize {
+  background: var(--maximize-btn);
 }
 
-.profile-menu {
-  position: fixed;
-  background: var(--terminal-bg);
-  border: 1px solid var(--terminal-border);
-  border-radius: 4px;
-  padding: 4px 0;
-  min-width: 200px;
-  z-index: 9999;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+.titlebar-button.close:hover {
+  background: #ff3f37;
 }
 
-.profile-menu-hint {
-  padding: 4px 12px;
-  font-size: 11px;
-  color: var(--terminal-fg);
-  opacity: 0.7;
-  border-bottom: 1px solid var(--terminal-border);
-  margin-bottom: 4px;
+.titlebar-button.minimize:hover {
+  background: #dea123;
 }
 
-.profile-item {
-  padding: 6px 12px;
-  cursor: pointer;
-  color: var(--terminal-fg);
-  font-size: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.titlebar-button.maximize:hover {
+  background: #1aaa2d;
 }
 
-.profile-item:hover {
-  background: var(--terminal-header);
-}
-
-.profile-shortcut {
-  opacity: 0.6;
-  font-size: 11px;
-}
-
-.new-tab {
-  position: relative;
-}
-
-.new-tab::after {
-  content: "Ctrl+Click for profiles";
-  position: absolute;
-  bottom: -30px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--terminal-bg);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-
-.new-tab:hover::after {
-  opacity: 1;
-}
-
-/* Add new styles for split functionality */
-.terminal-split-container {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
-.terminal-split {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-
-.terminal-split.horizontal {
-  flex-direction: column;
-}
-
-.terminal-split.vertical {
-  flex-direction: row;
-}
-
-.split-handle {
-  background-color: var(--terminal-border);
-  transition: background-color 0.2s;
-  z-index: 10;
-  flex-shrink: 0;
-}
-
-.split-handle:hover {
-  background-color: var(--terminal-fg);
-}
-
-.split-handle.vertical {
-  cursor: col-resize;
-  width: 4px;
-}
-
-.split-handle.horizontal {
-  cursor: row-resize;
-  height: 4px;
-}
-
-/* Add Golden Layout styles */
-.lm_root {
-  width: 100%;
-  height: 100%;
-}
-
-.lm_goldenlayout {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
-
-.lm_item {
-  border: none;
-}
-
-.terminal-instance {
-  width: 100%;
-  height: 100%;
-  position: relative;
+.titlebar-button img {
+  width: 16px;
+  height: 16px;
+  filter: invert(1);
 }

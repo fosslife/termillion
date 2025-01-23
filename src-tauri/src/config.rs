@@ -64,6 +64,13 @@ pub struct ShellConfig {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TerminalSettings {
     pub scrollback: Option<u32>,
+    pub padding: Option<PaddingConfig>, // Changed to struct
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaddingConfig {
+    pub x: u32, // Horizontal padding
+    pub y: u32, // Vertical padding
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -108,7 +115,7 @@ impl Default for Config {
                 family: "JetBrains Mono".into(),
                 fallback_family: "Consolas, Monaco, monospace".into(),
                 size: 14,
-                line_height: 1.5,
+                line_height: 1.0,
             },
             theme: ThemeConfig {
                 background: "#1a1b26".into(),
@@ -145,6 +152,10 @@ impl Default for Config {
             },
             terminal: TerminalSettings {
                 scrollback: Some(5000),
+                padding: Some(PaddingConfig {
+                    x: 12, // Default horizontal padding
+                    y: 8,  // Default vertical padding
+                }),
             },
             profiles: Some(Profiles {
                 default: "PowerShell".into(),
@@ -205,10 +216,10 @@ impl Config {
     fn migrate_config(mut config: Config) -> Result<Config, String> {
         match config.version {
             0 => {
-                // Add fallback font
                 config.font.fallback_family = "Consolas, Monaco, monospace".into();
                 config.terminal = TerminalSettings {
                     scrollback: Some(5000),
+                    padding: Some(PaddingConfig { x: 12, y: 8 }),
                 };
                 config.version = 1;
             }
@@ -225,6 +236,7 @@ impl Config {
             shell: old.shell,
             terminal: TerminalSettings {
                 scrollback: Some(5000),
+                padding: Some(PaddingConfig { x: 12, y: 8 }),
             },
             profiles: None,
         }

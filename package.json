@@ -19,12 +19,14 @@
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
+    "flexlayout-react": "^0.8.1",
     "golden-layout": "^2.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@types/react": "^19.0.8",
     "typescript": "~5.6.2",
     "vite": "^6.0.3"
   }
