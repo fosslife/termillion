@@ -25,47 +25,38 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const ptyIdRef = useRef<string | null>(null);
-  const [padding, setPadding] = useState({ x: 12, y: 8 }); // Default padding
+  const [padding, setPadding] = useState({ x: 12, y: 8 });
 
+  // Single useEffect for terminal lifecycle
   useEffect(() => {
-    log("Terminal component mounted with id:", id);
+    let mounted = true;
+    let xterm: XTerm | null = null;
+    let fitAddon: FitAddon | null = null;
+    let unlistenCallback: (() => void) | null = null;
 
-    const initializeTerminal = async () => {
-      if (!terminalRef.current) {
-        log("Error: No terminal container ref");
-        return;
-      }
-
-      if (xtermRef.current) {
-        log("Warning: Terminal already initialized");
-        return;
-      }
-
-      log("Initializing new terminal instance");
+    const initialize = async () => {
+      if (!terminalRef.current || xtermRef.current) return;
 
       try {
         const config = await invoke<Config>("get_config");
 
-        // Check and load font
+        // Font handling
         let fontFamily = config.font.family;
-        const isPrimaryFontAvailable = await isFontAvailable(fontFamily);
-
-        if (!isPrimaryFontAvailable) {
-          log(`Primary font ${fontFamily} not available, trying fallback`);
+        if (!(await isFontAvailable(fontFamily))) {
           fontFamily = config.font.fallback_family;
-
           if (!(await isFontAvailable(fontFamily))) {
             await loadGoogleFont(fontFamily);
           }
         }
 
-        const xterm = new XTerm({
+        // Create terminal
+        xterm = new XTerm({
           theme: {
             background: config.theme.background,
             foreground: config.theme.foreground,
             cursor: config.theme.cursor,
             selectionBackground: config.theme.selection,
-            // ANSI colors
+            // ANSI colors...
             black: config.theme.black,
             red: config.theme.red,
             green: config.theme.green,
@@ -74,7 +65,7 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
             magenta: config.theme.magenta,
             cyan: config.theme.cyan,
             white: config.theme.white,
-            // Bright variants
+            // Bright variants...
             brightBlack: config.theme.bright_black,
             brightRed: config.theme.bright_red,
             brightGreen: config.theme.bright_green,
@@ -88,113 +79,110 @@ const Terminal: React.FC<TerminalProps> = ({ id }) => {
           fontSize: config.font.size,
           lineHeight: 1,
           letterSpacing: 0,
-          scrollback:
-            config.terminal.scrollback === "infinite"
-              ? Infinity
-              : config.terminal.scrollback,
           cursorBlink: true,
           cursorStyle: "block",
           cursorWidth: 1,
         });
 
-        const fitAddon = new FitAddon();
-        const webLinksAddon = new WebLinksAddon();
-
+        // Add addons
+        fitAddon = new FitAddon();
         xterm.loadAddon(fitAddon);
-        xterm.loadAddon(webLinksAddon);
+        xterm.loadAddon(new WebLinksAddon());
 
+        if (!mounted) return;
+
+        // Store refs
         xtermRef.current = xterm;
         fitAddonRef.current = fitAddon;
 
-        log("Opening terminal in container");
+        // Open terminal
         xterm.open(terminalRef.current);
 
         try {
-          const webglAddon = new WebglAddon();
-          xterm.loadAddon(webglAddon);
+          xterm.loadAddon(new WebglAddon());
         } catch (e) {
           log("WebGL addon failed to load:", e);
         }
 
         fitAddon.fit();
-        log("Initial fit complete");
 
-        try {
-          const cwd = await homeDir();
-          log("Creating PTY with cwd:", cwd);
+        // Create PTY
+        const cwd = await homeDir();
+        const ptyId = await invoke<string>("create_pty", {
+          cwd,
+          rows: xterm.rows,
+          cols: xterm.cols,
+        });
 
-          const ptyId = (await invoke("create_pty", {
-            cwd,
-            rows: xterm.rows,
-            cols: xterm.cols,
-          })) as string;
+        if (!mounted) return;
 
-          ptyIdRef.current = ptyId;
-          log("PTY created with id:", ptyId);
+        ptyIdRef.current = ptyId;
 
-          const unlisten = await getCurrentWindow().listen(
-            `pty://output/${ptyId}`,
-            (event: any) => {
-              xterm.write(event.payload);
-            }
-          );
-
-          xterm.onData((data) => {
+        // Set up data handlers
+        xterm.onData((data) => {
+          if (ptyIdRef.current) {
             invoke("write_pty", {
-              ptyId,
+              ptyId: ptyIdRef.current,
               data,
+            }).catch((e) => log("Write error:", e));
+          }
+        });
+
+        const unlisten = await getCurrentWindow().listen(
+          `pty://output/${ptyId}`,
+          (event: any) => {
+            xterm?.write(event.payload);
+          }
+        );
+        unlistenCallback = unlisten;
+
+        // Handle resize
+        const handleResize = () => {
+          if (fitAddon && xterm && ptyId) {
+            fitAddon.fit();
+            invoke("resize_pty", {
+              ptyId,
+              rows: xterm.rows,
+              cols: xterm.cols,
             });
-          });
+          }
+        };
 
-          const handleResize = () => {
-            if (fitAddonRef.current) {
-              fitAddonRef.current.fit();
-              invoke("resize_pty", {
-                ptyId,
-                rows: xterm.rows,
-                cols: xterm.cols,
-              });
-            }
-          };
+        window.addEventListener("resize", handleResize);
 
-          window.addEventListener("resize", handleResize);
-          log("Terminal setup complete");
-
-          return () => {
-            log("Cleaning up terminal:", id);
-            unlisten();
-            window.removeEventListener("resize", handleResize);
-            xterm.dispose();
-            if (ptyId) {
-              invoke("destroy_pty", { ptyId });
-            }
-          };
-        } catch (error) {
-          log("Failed to initialize terminal:", error);
-        }
-      } catch (error) {
-        log("Failed to initialize terminal:", error);
-      }
-    };
-
-    initializeTerminal();
-  }, [id]);
-
-  useEffect(() => {
-    // Load config when component mounts
-    const loadConfig = async () => {
-      try {
-        const config = await invoke<Config>("get_config");
         if (config.terminal?.padding) {
           setPadding(config.terminal.padding);
         }
       } catch (error) {
-        log("Failed to load config:", error);
+        log("Terminal initialization failed:", error);
       }
     };
 
-    loadConfig();
-  }, []);
+    initialize();
+
+    // Cleanup
+    return () => {
+      mounted = false;
+
+      if (unlistenCallback) {
+        unlistenCallback();
+      }
+
+      if (ptyIdRef.current) {
+        invoke("destroy_pty", { ptyId: ptyIdRef.current }).catch((e) =>
+          log("PTY cleanup error:", e)
+        );
+        ptyIdRef.current = null;
+      }
+
+      if (xtermRef.current) {
+        xtermRef.current.dispose();
+        xtermRef.current = null;
+      }
+
+      window.removeEventListener("resize", () => {});
+    };
+  }, [id]);
 
   return (
     <div

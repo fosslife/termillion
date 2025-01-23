@@ -57,18 +57,12 @@ const json: IJsonModel = {
 
 const App: React.FC = () => {
   const terminalCountRef = useRef(1);
-  const terminalsRef = useRef(new Set<string>()); // Track created terminals
+  const terminalsRef = useRef(new Set<string>(["terminal-1"])); // Initialize with first terminal
   const [model] = useState(() => {
     const m = Model.fromJson(json);
     log("Initial model created");
     return m;
   });
-
-  // Initialize first terminal
-  useEffect(() => {
-    terminalsRef.current.add("terminal-1");
-    log("Added initial terminal to tracking");
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -104,9 +98,10 @@ const App: React.FC = () => {
   }, [model]);
 
   useEffect(() => {
+    // Load config once at startup
     const loadConfig = async () => {
       try {
-        const config = (await invoke("get_config")) as Config;
+        const config = await invoke<Config>("get_config");
 
         // Now we have proper type checking
         document.documentElement.style.setProperty(
