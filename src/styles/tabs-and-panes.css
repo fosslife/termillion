@@ -1,0 +1,138 @@
+/* Main container */
+.tabs-and-panes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--terminal-bg);
+}
+
+/* Tabs styling */
+.tabs {
+  display: flex;
+  background: var(--terminal-header);
+  height: 32px;
+  min-height: 32px;
+  padding: 0 4px;
+  gap: 2px;
+  user-select: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  color: var(--terminal-fg);
+  background: var(--terminal-bg);
+  border-top: 2px solid transparent;
+  cursor: pointer;
+  min-width: 120px;
+  max-width: 200px;
+}
+
+.tab.active {
+  background: var(--terminal-bg);
+  border-top: 2px solid var(--terminal-fg);
+}
+
+.tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--terminal-fg);
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+}
+
+.tab-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Panes container */
+.panes {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Individual tab content */
+.tab-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Split panes */
+.split {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.split.horizontal {
+  flex-direction: column;
+}
+
+.split.vertical {
+  flex-direction: row;
+}
+
+.split-first,
+.split-second {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0; /* Prevents flex items from overflowing */
+  min-height: 0; /* Prevents flex items from overflowing */
+}
+
+/* Split divider */
+.split-divider {
+  background: var(--terminal-border);
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.split.horizontal .split-divider {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.split.vertical .split-divider {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.split-divider:hover,
+.split-divider.dragging {
+  background: var(--terminal-fg);
+}
+
+/* Terminal pane */
+.pane {
+  width: 100%;
+  height: 100%;
+}

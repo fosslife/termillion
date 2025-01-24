@@ -1,123 +1,62 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Layout,
-  Model,
-  TabNode,
-  Actions,
-  IJsonModel,
-  DockLocation,
-} from "flexlayout-react";
-import "flexlayout-react/style/dark.css";
-import Terminal from "./components/Terminal";
-import WindowControls from "./components/WindowControls";
+import React, { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Config } from "./config";
+import WindowControls from "./components/WindowControls";
+import {
+  TabsProvider,
+  TabsAndPanes,
+  useTabsContext,
+} from "./components/TabsAndPanes";
+import "./styles/tabs-and-panes.css";
 
-// Debug helper
-const DEBUG = true;
-const log = (...args: any[]) => {
-  if (DEBUG) console.log("[App]", ...args);
-};
-
-// Initial layout with just one terminal
-const json: IJsonModel = {
-  global: {
-    tabSetMinWidth: 100,
-    tabSetMinHeight: 100,
-    borderMinSize: 100,
-    enableEdgeDock: true,
-    rootOrientationVertical: false,
-    tabEnableDrag: true,
-    tabEnablePopout: true,
-    tabEnableClose: true, // Enable close button
-    tabEnableRename: false,
-    tabSetEnableTabStrip: false,
-    tabSetEnableMaximize: false,
-    tabSetEnableDrag: false,
-    tabEnablePopoutIcon: false,
-  },
-  borders: [],
-  layout: {
-    type: "row",
-    weight: 100,
-    children: [
-      {
-        type: "tabset",
-        weight: 100,
-        selected: 0,
-        enableTabStrip: true, // Changed from false to show tab strip
-        children: [
-          {
-            type: "tab",
-            name: "Terminal 1",
-            component: "terminal",
-            id: "terminal-1",
-          },
-        ],
-      },
-    ],
-  },
-};
-
-const App: React.FC = () => {
-  const terminalCountRef = useRef(1);
-  const terminalsRef = useRef(new Set<string>(["terminal-1"])); // Initialize with first terminal
-  const [model] = useState(() => {
-    const m = Model.fromJson(json);
-    log("Initial model created");
-    return m;
-  });
+// Keyboard shortcuts handler component
+const KeyboardShortcuts: React.FC = () => {
+  const { createTab, splitPane, activePane } = useTabsContext();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const activeTabset = model.getActiveTabset();
-      if (!activeTabset) {
-        log("No active tabset found");
-        return;
-      }
-
-      const activeTab = activeTabset.getSelectedNode();
-      if (!activeTab) {
-        log("No active tab found");
-        return;
-      }
-
-      // New tab
+      // Ctrl+T: New tab
       if (event.ctrlKey && event.key.toLowerCase() === "t") {
-        log("New tab triggered");
         event.preventDefault();
-        createNewTab();
-      } else if (
-        // Horizontal split
+        createTab();
+      }
+      // Ctrl+Shift+E: Split horizontal
+      else if (
         event.ctrlKey &&
         event.shiftKey &&
         event.key.toLowerCase() === "e"
       ) {
-        log("Horizontal split triggered");
         event.preventDefault();
-        splitPane(activeTab as TabNode, "horizontal");
-      } else if (
+        if (activePane) {
+          splitPane(activePane, "horizontal");
+        }
+      }
+      // Ctrl+Shift+O: Split vertical
+      else if (
         event.ctrlKey &&
         event.shiftKey &&
         event.key.toLowerCase() === "o"
       ) {
-        log("Vertical split triggered");
         event.preventDefault();
-        splitPane(activeTab as TabNode, "vertical");
+        if (activePane) {
+          splitPane(activePane, "vertical");
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [model]);
+  }, [createTab, splitPane, activePane]);
 
+  return null;
+};
+
+const App: React.FC = () => {
   useEffect(() => {
-    // Load config once at startup
     const loadConfig = async () => {
       try {
         const config = await invoke<Config>("get_config");
-
-        // Now we have proper type checking
+        // Set CSS variables for theme
         document.documentElement.style.setProperty(
           "--terminal-bg",
           config.theme.background
@@ -134,17 +73,6 @@ const App: React.FC = () => {
           "--terminal-header",
           config.theme.header ?? "#16161e"
         );
-
-        if (config.terminal?.padding) {
-          document.documentElement.style.setProperty(
-            "--terminal-padding-x",
-            `${config.terminal.padding.x}px`
-          );
-          document.documentElement.style.setProperty(
-            "--terminal-padding-y",
-            `${config.terminal.padding.y}px`
-          );
-        }
       } catch (error) {
         console.error("Failed to load config:", error);
       }
@@ -153,172 +81,14 @@ const App: React.FC = () => {
     loadConfig();
   }, []);
 
-  const splitPane = (tab: TabNode, direction: "horizontal" | "vertical") => {
-    terminalCountRef.current += 1;
-    const newCount = terminalCountRef.current;
-    const newId = `terminal-${newCount}`;
-
-    log("Creating new terminal:", newId);
-
-    if (model.getNodeById(newId)) {
-      log("Error: Duplicate terminal ID detected:", newId);
-      return;
-    }
-
-    // Track the new terminal
-    terminalsRef.current.add(newId);
-    log("Current terminals:", Array.from(terminalsRef.current));
-
-    const newTabJson = {
-      type: "tab",
-      name: `Terminal ${newCount}`,
-      component: "terminal",
-      id: newId,
-      config: {},
-    };
-
-    const currentTabset = tab.getParent();
-    if (!currentTabset) {
-      log("Error: No parent tabset found");
-      return;
-    }
-
-    log("Adding new node to model:", {
-      direction,
-      parentId: currentTabset.getId(),
-      newTabJson,
-    });
-
-    // Add the new node
-    model.doAction(
-      Actions.addNode(
-        newTabJson,
-        currentTabset.getId(),
-        direction === "horizontal" ? DockLocation.BOTTOM : DockLocation.RIGHT,
-        -1,
-        true
-      )
-    );
-
-    // Focus the new tab after a short delay to ensure it's mounted
-    setTimeout(() => {
-      const newNode = model.getNodeById(newId);
-      if (newNode) {
-        model.doAction(Actions.selectTab(newNode.getId()));
-      }
-    }, 50);
-  };
-
-  const createNewTab = () => {
-    terminalCountRef.current += 1;
-    const newCount = terminalCountRef.current;
-    const newId = `terminal-${newCount}`;
-
-    log("Creating new tab:", newId);
-
-    if (model.getNodeById(newId)) {
-      log("Error: Duplicate terminal ID detected:", newId);
-      return;
-    }
-
-    // Track the new terminal
-    terminalsRef.current.add(newId);
-    log("Current terminals:", Array.from(terminalsRef.current));
-
-    const newTabJson = {
-      type: "tab",
-      name: `Terminal ${newCount}`,
-      component: "terminal",
-      id: newId,
-      config: {},
-    };
-
-    // Get the active tabset or create one
-    const activeTabset = model.getActiveTabset();
-    if (!activeTabset) {
-      log("No active tabset found");
-      return;
-    }
-
-    // Enable tab strip if not already enabled
-    model.doAction(
-      Actions.updateNodeAttributes(activeTabset.getId(), {
-        enableTabStrip: true,
-      })
-    );
-
-    // Add the new tab to the active tabset
-    model.doAction(
-      Actions.addNode(
-        newTabJson,
-        activeTabset.getId(),
-        DockLocation.CENTER,
-        -1,
-        true
-      )
-    );
-
-    // Focus the new tab after a short delay
-    setTimeout(() => {
-      const newNode = model.getNodeById(newId);
-      if (newNode) {
-        model.doAction(Actions.selectTab(newNode.getId()));
-      }
-    }, 50);
-  };
-
-  const factory = (node: TabNode) => {
-    const component = node.getComponent();
-    const id = node.getId();
-
-    log("Factory called for:", { component, id });
-
-    if (component === "terminal") {
-      if (!terminalsRef.current.has(id)) {
-        log("Warning: Terminal factory called for untracked ID:", id);
-        terminalsRef.current.add(id);
-      }
-      log("Creating terminal component for:", id);
-      return <Terminal key={id} id={id} model={model} />;
-    }
-
-    log("Warning: Unknown component type:", component);
-    return null;
-  };
-
   return (
-    <div className="app">
-      <WindowControls />
-      <Layout
-        model={model}
-        factory={factory}
-        onModelChange={(model) => {
-          // Remove terminal from tracking when its tab is closed
-          const currentIds = new Set(model.visitNodes((node) => node.getId()));
-          for (const id of terminalsRef.current) {
-            if (!currentIds.has(id)) {
-              terminalsRef.current.delete(id);
-            }
-          }
-          log("Model changed:", {
-            terminals: Array.from(terminalsRef.current),
-            modelJson: model.toJson(),
-          });
-        }}
-        onRenderTab={(node, renderValues) => {
-          // Ensure the terminal gets focus when its tab is selected
-          if (node.isSelected()) {
-            const terminalElement = document.querySelector(
-              `[data-terminal-id="${node.getId()}"]`
-            );
-            if (terminalElement) {
-              terminalElement.querySelector(".xterm-helper-textarea")?.focus();
-            }
-          }
-          return null; // Use default tab rendering
-        }}
-      />
-    </div>
+    <TabsProvider>
+      <div className="app">
+        <WindowControls />
+        <TabsAndPanes />
+        <KeyboardShortcuts />
+      </div>
+    </TabsProvider>
   );
 };
 
