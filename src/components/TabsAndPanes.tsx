@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import Terminal from "./Terminal";
 import { v4 as uuidv4 } from "uuid";
 import { useSplitResize } from "../hooks/useSplitResize";
@@ -50,21 +57,51 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [activeTabId, setActiveTabId] = useState("initial-tab");
   const [activePane, setActivePane] = useState<string | null>("initial-pane");
 
+  // Add useEffect for initial focus
+  useEffect(() => {
+    // Focus initial terminal after mount
+    requestAnimationFrame(() => {
+      const terminalElement = document.querySelector(
+        '[data-terminal-id="terminal-1"]'
+      );
+      if (terminalElement) {
+        const terminal = (terminalElement as any)._reactInternals?.child?.ref
+          ?.current;
+        terminal?.focus();
+      }
+    });
+  }, []); // Empty dependency array for mount only
+
   const createTab = useCallback(() => {
     const newId = uuidv4();
     const terminalId = `terminal-${newId}`;
+    const paneId = `pane-${newId}`;
+
     const newTab: Tab = {
       id: newId,
       name: `Terminal ${tabs.length + 1}`,
       content: {
-        id: `pane-${newId}`,
+        id: paneId,
         terminalId,
       },
     };
 
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
-  }, [tabs.length]);
+    setActivePane(paneId);
+
+    // Focus the new terminal
+    requestAnimationFrame(() => {
+      const terminalElement = document.querySelector(
+        `[data-terminal-id="${terminalId}"]`
+      );
+      if (terminalElement) {
+        const terminal = (terminalElement as any)._reactInternals?.child?.ref
+          ?.current;
+        terminal?.focus();
+      }
+    });
+  }, [tabs.length, setActiveTabId, setActivePane]);
 
   const closeTab = useCallback(
     (tabId: string) => {
@@ -130,13 +167,17 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
       // Set focus to the new pane after splitting
       setActivePane(newPaneId);
 
-      // Use setTimeout to ensure the new terminal is mounted
-      setTimeout(() => {
+      // Use requestAnimationFrame to ensure the new terminal is mounted
+      requestAnimationFrame(() => {
         const terminalElement = document.querySelector(
-          `[data-terminal-id="${newTerminalId}"] .xterm-helper-textarea`
-        ) as HTMLTextAreaElement;
-        terminalElement?.focus();
-      }, 0);
+          `[data-terminal-id="${newTerminalId}"]`
+        );
+        if (terminalElement) {
+          const terminal = (terminalElement as any)._reactInternals?.child?.ref
+            ?.current;
+          terminal?.focus();
+        }
+      });
     },
     [setActivePane]
   );
@@ -171,6 +212,7 @@ export const useTabsContext = () => {
 const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
   const { activePane, setActivePane } = useTabsContext();
   const [ratio, setRatio] = useState(0.5);
+  const terminalRef = useRef<{ focus: () => void }>(null);
   const { containerRef, dividerRef } = useSplitResize({
     direction: "terminalId" in content ? "vertical" : content.direction,
     onResize: setRatio,
@@ -184,9 +226,12 @@ const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
         className={`pane ${activePane === content.id ? "active" : ""}`}
         data-pane-id={content.id}
         data-terminal-id={content.terminalId}
-        onClick={() => setActivePane(content.id)}
+        onClick={() => {
+          setActivePane(content.id);
+          terminalRef.current?.focus();
+        }}
       >
-        <Terminal id={content.terminalId} />
+        <Terminal ref={terminalRef} id={content.terminalId} />
       </div>
     );
   }
