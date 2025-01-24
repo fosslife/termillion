@@ -106,12 +106,7 @@ body {
   background: var(--terminal-header);
   border-bottom: 1px solid var(--terminal-border);
   height: 32px;
-  display: none; /* Hidden by default */
-}
-
-/* Show tab bar when there are multiple tabs */
-.flexlayout__tabset:not(:only-child) .flexlayout__tabset_tabbar_outer {
-  display: block;
+  display: flex; /* Show all tabs */
 }
 
 .flexlayout__tab_button {
@@ -121,6 +116,10 @@ body {
   border: none;
   font-family: var(--terminal-font);
   font-size: 12px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .flexlayout__tab_button--selected {
@@ -130,6 +129,23 @@ body {
 
 .flexlayout__tab_button:hover {
   background: var(--terminal-header);
+}
+
+/* Style the tab close button */
+.flexlayout__tab_button_trailing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.flexlayout__tab_button_trailing:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
 }
 
 /* Scrollbar styling */

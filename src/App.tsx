@@ -27,10 +27,14 @@ const json: IJsonModel = {
     borderMinSize: 100,
     enableEdgeDock: true,
     rootOrientationVertical: false,
-    tabSetHeaderHeight: 0, // Hide header initially
-    tabSetTabStripHeight: 32,
-    tabEnableClose: false,
+    tabEnableDrag: true,
+    tabEnablePopout: true,
+    tabEnableClose: true, // Enable close button
     tabEnableRename: false,
+    tabSetEnableTabStrip: false,
+    tabSetEnableMaximize: false,
+    tabSetEnableDrag: false,
+    tabEnablePopoutIcon: false,
   },
   borders: [],
   layout: {
@@ -41,7 +45,7 @@ const json: IJsonModel = {
         type: "tabset",
         weight: 100,
         selected: 0,
-        enableTabStrip: false, // Hide tab strip initially
+        enableTabStrip: true, // Changed from false to show tab strip
         children: [
           {
             type: "tab",
@@ -78,7 +82,17 @@ const App: React.FC = () => {
         return;
       }
 
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "e") {
+      // New tab
+      if (event.ctrlKey && event.key.toLowerCase() === "t") {
+        log("New tab triggered");
+        event.preventDefault();
+        createNewTab();
+      } else if (
+        // Horizontal split
+        event.ctrlKey &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "e"
+      ) {
         log("Horizontal split triggered");
         event.preventDefault();
         splitPane(activeTab as TabNode, "horizontal");
@@ -169,13 +183,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // Enable tab strip when splitting
-    model.doAction(
-      Actions.updateNodeAttributes(currentTabset.getId(), {
-        enableTabStrip: true,
-      })
-    );
-
     log("Adding new node to model:", {
       direction,
       parentId: currentTabset.getId(),
@@ -194,6 +201,64 @@ const App: React.FC = () => {
     );
 
     // Focus the new tab after a short delay to ensure it's mounted
+    setTimeout(() => {
+      const newNode = model.getNodeById(newId);
+      if (newNode) {
+        model.doAction(Actions.selectTab(newNode.getId()));
+      }
+    }, 50);
+  };
+
+  const createNewTab = () => {
+    terminalCountRef.current += 1;
+    const newCount = terminalCountRef.current;
+    const newId = `terminal-${newCount}`;
+
+    log("Creating new tab:", newId);
+
+    if (model.getNodeById(newId)) {
+      log("Error: Duplicate terminal ID detected:", newId);
+      return;
+    }
+
+    // Track the new terminal
+    terminalsRef.current.add(newId);
+    log("Current terminals:", Array.from(terminalsRef.current));
+
+    const newTabJson = {
+      type: "tab",
+      name: `Terminal ${newCount}`,
+      component: "terminal",
+      id: newId,
+      config: {},
+    };
+
+    // Get the active tabset or create one
+    const activeTabset = model.getActiveTabset();
+    if (!activeTabset) {
+      log("No active tabset found");
+      return;
+    }
+
+    // Enable tab strip if not already enabled
+    model.doAction(
+      Actions.updateNodeAttributes(activeTabset.getId(), {
+        enableTabStrip: true,
+      })
+    );
+
+    // Add the new tab to the active tabset
+    model.doAction(
+      Actions.addNode(
+        newTabJson,
+        activeTabset.getId(),
+        DockLocation.CENTER,
+        -1,
+        true
+      )
+    );
+
+    // Focus the new tab after a short delay
     setTimeout(() => {
       const newNode = model.getNodeById(newId);
       if (newNode) {
