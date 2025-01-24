@@ -213,9 +213,23 @@ const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
   const { activePane, setActivePane } = useTabsContext();
   const [ratio, setRatio] = useState(0.5);
   const terminalRef = useRef<{ focus: () => void }>(null);
+
+  // Fix direction logic
+  const splitDirection = !("terminalId" in content)
+    ? content.direction
+    : "horizontal";
+  console.log("[PaneView] Split direction:", {
+    splitDirection,
+    content,
+    isPane: "terminalId" in content,
+  });
+
   const { containerRef, dividerRef } = useSplitResize({
-    direction: "terminalId" in content ? "vertical" : content.direction,
-    onResize: setRatio,
+    direction: splitDirection,
+    onResize: (newRatio) => {
+      console.log("[PaneView] Resize:", { newRatio, splitDirection });
+      setRatio(newRatio);
+    },
     minRatio: 0.2,
     maxRatio: 0.8,
   });
@@ -237,12 +251,24 @@ const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
   }
 
   return (
-    <div className={`split ${content.direction}`} ref={containerRef}>
-      <div className="split-first" style={{ flex: ratio }}>
+    <div
+      className={`split ${content.direction}`}
+      ref={containerRef}
+      data-split-direction={content.direction}
+    >
+      <div className="split-first" style={{ flex: ratio }} data-ratio={ratio}>
         <PaneView content={content.first} />
       </div>
-      <div className="split-divider" ref={dividerRef} />
-      <div className="split-second" style={{ flex: 1 - ratio }}>
+      <div
+        className="split-divider"
+        ref={dividerRef}
+        data-direction={content.direction}
+      />
+      <div
+        className="split-second"
+        style={{ flex: 1 - ratio }}
+        data-ratio={1 - ratio}
+      >
         <PaneView content={content.second} />
       </div>
     </div>
