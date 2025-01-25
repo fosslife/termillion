@@ -48,24 +48,73 @@ const KeyboardShortcuts: React.FC = () => {
     if (!config) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const shortcut = config.shortcuts.new_tab;
+      // Helper function to check if shortcut matches
+      const matchesShortcut = (shortcut: Shortcut): boolean => {
+        if (event.ctrlKey !== shortcut.ctrl) return false;
+        if (event.shiftKey !== (shortcut.shift ?? false)) return false;
+        if (event.altKey !== (shortcut.alt ?? false)) return false;
+        if (event.metaKey !== (shortcut.meta ?? false)) return false;
+        return event.key.toLowerCase() === shortcut.key.toLowerCase();
+      };
 
-      // Match modifiers
-      if (event.ctrlKey !== shortcut.ctrl) return;
-      if (event.shiftKey !== (shortcut.shift ?? false)) return;
-      if (event.altKey !== (shortcut.alt ?? false)) return;
-      if (event.metaKey !== (shortcut.meta ?? false)) return;
-
-      // Match key
-      if (event.key.toLowerCase() === shortcut.key.toLowerCase()) {
+      // New tab
+      if (matchesShortcut(config.shortcuts.new_tab)) {
         event.preventDefault();
         createTab();
+      }
+      // Close tab
+      else if (matchesShortcut(config.shortcuts.close_tab)) {
+        event.preventDefault();
+        if (activeTabId) {
+          closeTab(activeTabId);
+        }
+      }
+      // Split vertical
+      else if (matchesShortcut(config.shortcuts.split_vertical)) {
+        event.preventDefault();
+        if (activePane) {
+          splitPane(activePane, "vertical");
+        }
+      }
+      // Split horizontal
+      else if (matchesShortcut(config.shortcuts.split_horizontal)) {
+        event.preventDefault();
+        if (activePane) {
+          splitPane(activePane, "horizontal");
+        }
+      }
+      // Focus next pane
+      else if (matchesShortcut(config.shortcuts.focus_next_pane)) {
+        event.preventDefault();
+        focusNextPane();
+      }
+      // Focus previous pane
+      else if (matchesShortcut(config.shortcuts.focus_previous_pane)) {
+        event.preventDefault();
+        focusPreviousPane();
+      }
+      // Close pane
+      else if (matchesShortcut(config.shortcuts.close_pane)) {
+        event.preventDefault();
+        if (activePane) {
+          closePane(activePane);
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [config, createTab]);
+  }, [
+    config,
+    createTab,
+    closeTab,
+    activeTabId,
+    splitPane,
+    activePane,
+    closePane,
+    focusNextPane,
+    focusPreviousPane,
+  ]);
 
   return null;
 };
@@ -112,6 +161,8 @@ const App: React.FC = () => {
         "--terminal-header",
         config.theme.header ?? "#16161e"
       );
+
+      setConfig(config);
     } catch (error) {
       console.error("Failed to load config:", error);
     }
