@@ -278,13 +278,13 @@ impl Default for Config {
                     ..Default::default()
                 },
                 split_vertical: Shortcut {
-                    key: "\\".into(),
+                    key: "v".into(),
                     ctrl: true,
                     shift: true,
                     ..Default::default()
                 },
                 split_horizontal: Shortcut {
-                    key: "/".into(),
+                    key: "h".into(),
                     ctrl: true,
                     shift: true,
                     ..Default::default()
@@ -428,13 +428,13 @@ impl Config {
                     ..Default::default()
                 },
                 split_vertical: Shortcut {
-                    key: "\\".into(),
+                    key: "v".into(),
                     ctrl: true,
                     shift: true,
                     ..Default::default()
                 },
                 split_horizontal: Shortcut {
-                    key: "/".into(),
+                    key: "h".into(),
                     ctrl: true,
                     shift: true,
                     ..Default::default()
@@ -540,6 +540,61 @@ impl Default for Shortcut {
             shift: false,
             alt: false,
             meta: false,
+        }
+    }
+}
+
+impl Default for KeyboardShortcuts {
+    fn default() -> Self {
+        Self {
+            new_tab: Shortcut {
+                key: "t".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            close_tab: Shortcut {
+                key: "w".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            split_vertical: Shortcut {
+                key: "v".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            split_horizontal: Shortcut {
+                key: "h".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            focus_next_pane: Shortcut {
+                key: "]".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            focus_previous_pane: Shortcut {
+                key: "[".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            close_pane: Shortcut {
+                key: "e".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            reload_config: Shortcut {
+                key: "r".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
         }
     }
 }

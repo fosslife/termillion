@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Config, ValidationError } from "./config";
+import { Config, ValidationError, Shortcut } from "./config";
 import WindowControls from "./components/WindowControls";
 import {
   TabsProvider,
@@ -161,8 +161,6 @@ const App: React.FC = () => {
         "--terminal-header",
         config.theme.header ?? "#16161e"
       );
-
-      setConfig(config);
     } catch (error) {
       console.error("Failed to load config:", error);
     }

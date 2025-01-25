@@ -41,68 +41,53 @@ impl Config {
     }
 }
 
-fn validate_shortcut(name: &str, shortcut: &Shortcut) -> Option<ValidationError> {
-    // Must use Ctrl+Shift
-    if !shortcut.ctrl || !shortcut.shift {
-        return Some(ValidationError {
-            component: "shortcuts".into(),
-            message: format!("Shortcut '{}' must use Ctrl+Shift combination", name),
-        });
-    }
+fn validate_shortcut(name: &str, shortcut: &Shortcut) -> Vec<ValidationError> {
+    let mut errors = Vec::new();
 
-    // Must not use Alt (reserved for terminal)
-    if shortcut.alt {
-        return Some(ValidationError {
-            component: "shortcuts".into(),
+    // Only restrict single keys without modifiers
+    if shortcut.key.len() == 1
+        && shortcut.key.chars().next().unwrap().is_ascii_alphanumeric()
+        && !shortcut.ctrl
+        && !shortcut.alt
+        && !shortcut.shift
+        && !shortcut.meta
+    {
+        errors.push(ValidationError {
+            component: format!("shortcuts.{}.key", name),
             message: format!(
-                "Shortcut '{}' must not use Alt (reserved for terminal)",
-                name
+                "Single key '{}' without modifiers may interfere with terminal applications. Please add Ctrl, Alt, Shift, or Meta modifier.",
+                shortcut.key
             ),
         });
     }
 
-    // Must be a safe key
-    if !SAFE_KEYS.contains(shortcut.key.to_lowercase().as_str()) {
-        return Some(ValidationError {
-            component: "shortcuts".into(),
-            message: format!(
-                "Shortcut '{}' uses key '{}' which may interfere with terminal applications",
-                name, shortcut.key
-            ),
-        });
-    }
-
-    None
+    errors
 }
 
 fn validate_shortcuts(shortcuts: &KeyboardShortcuts) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
     // Validate each shortcut
-    if let Some(err) = validate_shortcut("new_tab", &shortcuts.new_tab) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("close_tab", &shortcuts.close_tab) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("split_vertical", &shortcuts.split_vertical) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("split_horizontal", &shortcuts.split_horizontal) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("focus_next_pane", &shortcuts.focus_next_pane) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("focus_previous_pane", &shortcuts.focus_previous_pane) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("close_pane", &shortcuts.close_pane) {
-        errors.push(err);
-    }
-    if let Some(err) = validate_shortcut("reload_config", &shortcuts.reload_config) {
-        errors.push(err);
-    }
+    errors.extend(validate_shortcut("new_tab", &shortcuts.new_tab));
+    errors.extend(validate_shortcut("close_tab", &shortcuts.close_tab));
+    errors.extend(validate_shortcut(
+        "split_vertical",
+        &shortcuts.split_vertical,
+    ));
+    errors.extend(validate_shortcut(
+        "split_horizontal",
+        &shortcuts.split_horizontal,
+    ));
+    errors.extend(validate_shortcut(
+        "focus_next_pane",
+        &shortcuts.focus_next_pane,
+    ));
+    errors.extend(validate_shortcut(
+        "focus_previous_pane",
+        &shortcuts.focus_previous_pane,
+    ));
+    errors.extend(validate_shortcut("close_pane", &shortcuts.close_pane));
+    errors.extend(validate_shortcut("reload_config", &shortcuts.reload_config));
 
     // Check for conflicts
     let mut used_combinations = HashSet::new();
