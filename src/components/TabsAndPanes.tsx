@@ -10,6 +10,7 @@ import Terminal from "./Terminal";
 import { v4 as uuidv4 } from "uuid";
 import { useSplitResize } from "../hooks/useSplitResize";
 
+// Core types
 interface Pane {
   id: string;
   terminalId: string;
@@ -28,6 +29,7 @@ interface Tab {
   content: Pane | Split;
 }
 
+// Context type
 interface TabsContextType {
   tabs: Tab[];
   activeTabId: string;
@@ -44,9 +46,11 @@ interface TabsContextType {
 
 const TabsContext = createContext<TabsContextType | null>(null);
 
+// Provider Component
 export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  // State
   const [tabs, setTabs] = useState<Tab[]>([
     {
       id: "initial-tab",
@@ -75,6 +79,7 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []); // Empty dependency array for mount only
 
+  // Create new tab
   const createTab = useCallback(() => {
     const newId = uuidv4();
     const terminalId = `terminal-${newId}`;
@@ -93,18 +98,91 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
     setActiveTabId(newId);
     setActivePane(paneId);
 
-    // Focus the new terminal
+    // Focus new terminal
     requestAnimationFrame(() => {
-      const terminalElement = document.querySelector(
+      const terminal = document.querySelector(
         `[data-terminal-id="${terminalId}"]`
       );
-      if (terminalElement) {
-        const terminal = (terminalElement as any)._reactInternals?.child?.ref
-          ?.current;
-        terminal?.focus();
+      if (terminal) {
+        (terminal as any)._reactInternals?.child?.ref?.current?.focus();
       }
     });
-  }, [tabs.length, setActiveTabId, setActivePane]);
+  }, [tabs.length]);
+
+  // Split pane
+  const splitPane = useCallback(
+    (paneId: string, direction: "horizontal" | "vertical") => {
+      const newTerminalId = `terminal-${uuidv4()}`;
+      const newPaneId = `pane-${uuidv4()}`;
+
+      setTabs((prev) =>
+        prev.map((tab) => {
+          // Helper function to process the content tree
+          function processContent(node: Pane | Split): Pane | Split {
+            // If this is a pane we want to split
+            if ("terminalId" in node && node.id === paneId) {
+              return {
+                direction,
+                ratio: 0.5,
+                first: node, // Keep original pane unchanged
+                second: {
+                  // Create new pane
+                  id: newPaneId,
+                  terminalId: newTerminalId,
+                },
+              };
+            }
+
+            // If this is a different pane
+            if ("terminalId" in node) {
+              return node;
+            }
+
+            // If this is a split, process its children
+            const newFirst = processContent(node.first);
+            const newSecond = processContent(node.second);
+
+            // If nothing changed in the children
+            if (newFirst === node.first && newSecond === node.second) {
+              return node;
+            }
+
+            // Create new split with updated children
+            return {
+              ...node,
+              first: newFirst,
+              second: newSecond,
+            };
+          }
+
+          // Process the tab's content
+          const newContent = processContent(tab.content);
+
+          // If nothing changed in this tab
+          if (newContent === tab.content) {
+            return tab;
+          }
+
+          // Create new tab with updated content
+          return { ...tab, content: newContent };
+        })
+      );
+
+      // Focus the new pane
+      setActivePane(newPaneId);
+
+      // Focus the new terminal
+      requestAnimationFrame(() => {
+        const terminal = document.querySelector(
+          `[data-terminal-id="${newTerminalId}"]`
+        );
+        if (terminal) {
+          (terminal as any)._reactInternals?.child?.ref?.current?.focus();
+        }
+      });
+    },
+    []
+  );
 
   const closeTab = useCallback(
     (tabId: string) => {
@@ -119,70 +197,6 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [tabs, activeTabId]
-  );
-
-  const splitPane = useCallback(
-    (paneId: string, direction: "horizontal" | "vertical") => {
-      const newTerminalId = `terminal-${uuidv4()}`;
-      const newPaneId = `pane-${uuidv4()}`;
-
-      setTabs((prev) =>
-        prev.map((tab) => {
-          const splitContent = (
-            content: Pane | Split
-          ): Pane | Split | undefined => {
-            if ("terminalId" in content) {
-              if (content.id === paneId) {
-                return {
-                  direction,
-                  ratio: 0.5,
-                  first: content,
-                  second: {
-                    id: newPaneId,
-                    terminalId: newTerminalId,
-                  },
-                };
-              }
-              return content;
-            }
-
-            // Search in split panes
-            const firstResult = splitContent(content.first);
-            if (firstResult !== content.first) {
-              return { ...content, first: firstResult };
-            }
-
-            const secondResult = splitContent(content.second);
-            if (secondResult !== content.second) {
-              return { ...content, second: secondResult };
-            }
-
-            return content;
-          };
-
-          return {
-            ...tab,
-            content: splitContent(tab.content) || tab.content,
-          };
-        })
-      );
-
-      // Set focus to the new pane after splitting
-      setActivePane(newPaneId);
-
-      // Use requestAnimationFrame to ensure the new terminal is mounted
-      requestAnimationFrame(() => {
-        const terminalElement = document.querySelector(
-          `[data-terminal-id="${newTerminalId}"]`
-        );
-        if (terminalElement) {
-          const terminal = (terminalElement as any)._reactInternals?.child?.ref
-            ?.current;
-          terminal?.focus();
-        }
-      });
-    },
-    [setActivePane]
   );
 
   const focusNextPane = useCallback(() => {

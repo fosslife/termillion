@@ -17,6 +17,8 @@ import {
   StateFlags,
 } from "@tauri-apps/plugin-window-state";
 import ErrorBanner from "./components/ErrorBanner";
+import { TerminalProvider } from "./components/Terminal/TerminalManager";
+import { TerminalTabs } from "./components/Terminal/TerminalTabs";
 
 // Keyboard shortcuts handler component
 const KeyboardShortcuts: React.FC = () => {
@@ -195,14 +197,16 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <TabsProvider>
-      <div className="app">
-        <ErrorBanner errors={validationErrors} />
-        <WindowControls />
-        <TabsAndPanes />
-        <KeyboardShortcuts />
-      </div>
-    </TabsProvider>
+    <TerminalProvider>
+      <TabsProvider>
+        <div className="app">
+          <ErrorBanner errors={validationErrors} />
+          <WindowControls />
+          <TerminalTabs />
+          <KeyboardShortcuts />
+        </div>
+      </TabsProvider>
+    </TerminalProvider>
   );
 };
 
