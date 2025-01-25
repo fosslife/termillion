@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Config } from "./config";
+import { Config, ValidationError } from "./config";
 import WindowControls from "./components/WindowControls";
 import {
   TabsProvider,
@@ -8,6 +8,7 @@ import {
   useTabsContext,
 } from "./components/TabsAndPanes";
 import "./styles/tabs-and-panes.css";
+import "./styles/error-banner.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import {
@@ -15,6 +16,7 @@ import {
   restoreStateCurrent,
   StateFlags,
 } from "@tauri-apps/plugin-window-state";
+import ErrorBanner from "./components/ErrorBanner";
 
 // Keyboard shortcuts handler component
 const KeyboardShortcuts: React.FC = () => {
@@ -43,53 +45,36 @@ const KeyboardShortcuts: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!config) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Keep the original working shortcuts as fallback
-      if (event.ctrlKey && event.key.toLowerCase() === "t") {
+      const shortcut = config.shortcuts.new_tab;
+
+      // Match modifiers
+      if (event.ctrlKey !== shortcut.ctrl) return;
+      if (event.shiftKey !== (shortcut.shift ?? false)) return;
+      if (event.altKey !== (shortcut.alt ?? false)) return;
+      if (event.metaKey !== (shortcut.meta ?? false)) return;
+
+      // Match key
+      if (event.key.toLowerCase() === shortcut.key.toLowerCase()) {
         event.preventDefault();
         createTab();
-      }
-      // Ctrl+Shift+E: Split horizontal
-      else if (
-        event.ctrlKey &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "e"
-      ) {
-        event.preventDefault();
-        if (activePane) {
-          splitPane(activePane, "horizontal");
-        }
-      }
-      // Ctrl+Shift+O: Split vertical
-      else if (
-        event.ctrlKey &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "o"
-      ) {
-        event.preventDefault();
-        if (activePane) {
-          splitPane(activePane, "vertical");
-        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    createTab,
-    splitPane,
-    activePane,
-    closeTab,
-    closePane,
-    focusNextPane,
-    focusPreviousPane,
-    activeTabId,
-  ]);
+  }, [config, createTab]);
 
   return null;
 };
 
 const App: React.FC = () => {
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
+    []
+  );
+
   useEffect(() => {
     // Window state restoration
     restoreStateCurrent(StateFlags.ALL);
@@ -103,38 +88,67 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Extract config loading into a function
+  const loadConfig = async () => {
+    try {
+      const config = await invoke<Config>("get_config");
+      const errors = await invoke<ValidationError[]>("validate_config");
+      setValidationErrors(errors);
+
+      // Set CSS variables for theme
+      document.documentElement.style.setProperty(
+        "--terminal-bg",
+        config.theme.background
+      );
+      document.documentElement.style.setProperty(
+        "--terminal-fg",
+        config.theme.foreground
+      );
+      document.documentElement.style.setProperty(
+        "--terminal-border",
+        config.theme.border ?? "#24283b"
+      );
+      document.documentElement.style.setProperty(
+        "--terminal-header",
+        config.theme.header ?? "#16161e"
+      );
+    } catch (error) {
+      console.error("Failed to load config:", error);
+    }
+  };
+
+  // Add keyboard shortcut for reload
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const config = await invoke<Config>("get_config");
-        // Set CSS variables for theme
-        document.documentElement.style.setProperty(
-          "--terminal-bg",
-          config.theme.background
-        );
-        document.documentElement.style.setProperty(
-          "--terminal-fg",
-          config.theme.foreground
-        );
-        document.documentElement.style.setProperty(
-          "--terminal-border",
-          config.theme.border ?? "#24283b"
-        );
-        document.documentElement.style.setProperty(
-          "--terminal-header",
-          config.theme.header ?? "#16161e"
-        );
-      } catch (error) {
-        console.error("Failed to load config:", error);
+    const handleKeyDown = async (event: KeyboardEvent) => {
+      const config = await invoke<Config>("get_config");
+      const shortcut = config.shortcuts.reload_config;
+
+      // Match modifiers
+      if (event.ctrlKey !== shortcut.ctrl) return;
+      if (event.shiftKey !== (shortcut.shift ?? false)) return;
+      if (event.altKey !== (shortcut.alt ?? false)) return;
+      if (event.metaKey !== (shortcut.meta ?? false)) return;
+
+      // Match key
+      if (event.key.toLowerCase() === shortcut.key.toLowerCase()) {
+        event.preventDefault();
+        await loadConfig();
       }
     };
 
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Initial config load
+  useEffect(() => {
     loadConfig();
   }, []);
 
   return (
     <TabsProvider>
       <div className="app">
+        <ErrorBanner errors={validationErrors} />
         <WindowControls />
         <TabsAndPanes />
         <KeyboardShortcuts />

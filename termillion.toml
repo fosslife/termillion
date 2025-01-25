@@ -1,0 +1,128 @@
+# Termillion Configuration File
+# Version: 1
+
+# Font settings
+[font]
+family = "JetBrains Mono"              # Primary font family
+fallback_family = "Consolas, Monaco, monospace"  # Fallback fonts
+size = 14                              # Font size in pixels
+line_height = 1.0                      # Line height multiplier
+
+# Terminal settings
+[terminal]
+scrollback = 5000                      # Number of lines to keep in history
+padding = { x = 12, y = 8 }           # Terminal content padding in pixels
+
+# Shell configuration
+[shell]
+windows = "powershell.exe"             # Default shell for Windows
+linux = "/bin/bash"                    # Default shell for Linux
+macos = "/bin/zsh"                     # Default shell for macOS
+
+# Keyboard Shortcuts
+# All shortcuts must:
+# 1. Use Ctrl+Shift combination
+# 2. Not use Alt key (reserved for terminal applications)
+# 3. Use only safe keys: t, w, r, e, o, [, ], \, /
+#
+# This ensures shortcuts don't interfere with terminal applications.
+
+[shortcuts]
+new_tab = { key = "t", ctrl = true, shift = true }        # Create new tab
+close_tab = { key = "w", ctrl = true, shift = true }      # Close current tab
+split_vertical = { key = "\\", ctrl = true, shift = true } # Split pane vertically
+split_horizontal = { key = "/", ctrl = true, shift = true } # Split pane horizontally
+focus_next_pane = { key = "]", ctrl = true, shift = true } # Focus next pane
+focus_previous_pane = { key = "[", ctrl = true, shift = true } # Focus previous pane
+close_pane = { key = "e", ctrl = true, shift = true }     # Close current pane
+reload_config = { key = "r", ctrl = true, shift = true }  # Reload configuration
+
+# Window controls configuration
+[window_controls]
+position = "left"                      # "left" or "right"
+style = "native"                       # "native" or "custom"
+visible = true                         # Show/hide window controls
+
+# Optional custom window control icons
+# [window_controls.custom]
+# close = "×"
+# minimize = "_"
+# maximize = "□"
+# restore = "▢"
+
+# Tab bar configuration
+[tab_bar]
+visible = true
+position = "top"                       # "top" or "bottom"
+
+[tab_bar.style]
+height = 30                            # Height in pixels
+background_color = "#1a1b26"
+
+[tab_bar.style.active_tab]
+background_color = "#24283b"
+border_color = "#32344a"
+text_color = "#a9b1d6"
+
+[tab_bar.style.inactive_tab]
+background_color = "#1a1b26"
+border_color = "#24283b"
+text_color = "#787c99"
+
+# Split pane configuration
+[split_pane]
+min_size = 200                         # Minimum pane size in pixels
+
+[split_pane.divider]
+size = 5                              # Divider width in pixels
+color = "#32344a"                     # Normal color
+hover_color = "#444b6a"               # Color when mouse hovers
+drag_color = "#56586e"                # Color while dragging
+
+[split_pane.animation]
+enabled = true
+duration = 200                         # Animation duration in milliseconds
+
+# Theme configuration
+[theme]
+background = "#1a1b26"                 # Terminal background color
+foreground = "#a9b1d6"                 # Default text color
+cursor = "#c0caf5"                     # Cursor color
+selection = "#283457"                  # Selection background color
+border = "#24283b"                     # Window border color
+header = "#16161e"                     # Header background color
+
+# Standard ANSI Colors (0-7)
+black = "#32344a"
+red = "#f7768e"
+green = "#9ece6a"
+yellow = "#e0af68"
+blue = "#7aa2f7"
+magenta = "#ad8ee6"
+cyan = "#449dab"
+white = "#787c99"
+
+# Bright ANSI Colors (8-15)
+bright_black = "#444b6a"
+bright_red = "#ff7a93"
+bright_green = "#b9f27c"
+bright_yellow = "#ff9e64"
+bright_blue = "#7da6ff"
+bright_magenta = "#bb9af7"
+bright_cyan = "#0db9d7"
+bright_white = "#acb0d0"
+
+# Profile configuration
+[profiles]
+default = "PowerShell"
+
+[[profiles.list]]
+name = "PowerShell"
+command = "powershell.exe"
+# Optional: args = []
+# Optional: font = { ... }
+# Optional: theme = { ... }
+
+[[profiles.list]]
+name = "WSL"
+command = "wsl.exe" 

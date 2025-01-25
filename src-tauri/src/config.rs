@@ -89,15 +89,29 @@ pub struct Profiles {
     pub list: Vec<Profile>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Shortcut {
+    pub key: String,
+    #[serde(default)]
+    pub ctrl: bool,
+    #[serde(default)]
+    pub shift: bool,
+    #[serde(default)]
+    pub alt: bool,
+    #[serde(default)]
+    pub meta: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KeyboardShortcuts {
-    pub new_tab: String,
-    pub close_tab: String,
-    pub split_vertical: String,
-    pub split_horizontal: String,
-    pub focus_next_pane: String,
-    pub focus_previous_pane: String,
-    pub close_pane: String,
+    pub new_tab: Shortcut,
+    pub close_tab: Shortcut,
+    pub split_vertical: Shortcut,
+    pub split_horizontal: Shortcut,
+    pub focus_next_pane: Shortcut,
+    pub focus_previous_pane: Shortcut,
+    pub close_pane: Shortcut,
+    pub reload_config: Shortcut,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -251,13 +265,54 @@ impl Default for Config {
                 ],
             }),
             shortcuts: KeyboardShortcuts {
-                new_tab: "Ctrl+T".into(),
-                close_tab: "Ctrl+W".into(),
-                split_vertical: "Ctrl+Shift+E".into(),
-                split_horizontal: "Ctrl+Shift+O".into(),
-                focus_next_pane: "Ctrl+]".into(),
-                focus_previous_pane: "Ctrl+[".into(),
-                close_pane: "Ctrl+Shift+W".into(),
+                new_tab: Shortcut {
+                    key: "t".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                close_tab: Shortcut {
+                    key: "w".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                split_vertical: Shortcut {
+                    key: "\\".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                split_horizontal: Shortcut {
+                    key: "/".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                focus_next_pane: Shortcut {
+                    key: "]".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                focus_previous_pane: Shortcut {
+                    key: "[".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                close_pane: Shortcut {
+                    key: "e".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                reload_config: Shortcut {
+                    key: "r".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
             },
             window_controls: WindowControlsConfig {
                 position: "left".into(),
@@ -360,13 +415,54 @@ impl Config {
             },
             profiles: None,
             shortcuts: KeyboardShortcuts {
-                new_tab: "Ctrl+T".into(),
-                close_tab: "Ctrl+W".into(),
-                split_vertical: "Ctrl+Shift+E".into(),
-                split_horizontal: "Ctrl+Shift+O".into(),
-                focus_next_pane: "Ctrl+]".into(),
-                focus_previous_pane: "Ctrl+[".into(),
-                close_pane: "Ctrl+Shift+W".into(),
+                new_tab: Shortcut {
+                    key: "t".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                close_tab: Shortcut {
+                    key: "w".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                split_vertical: Shortcut {
+                    key: "\\".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                split_horizontal: Shortcut {
+                    key: "/".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                focus_next_pane: Shortcut {
+                    key: "]".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                focus_previous_pane: Shortcut {
+                    key: "[".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                close_pane: Shortcut {
+                    key: "e".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
+                reload_config: Shortcut {
+                    key: "r".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
             },
             window_controls: WindowControlsConfig {
                 position: "left".into(),
@@ -433,4 +529,17 @@ fn get_config_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|_| "Failed to get config directory".to_string())?;
     path.push("termillion.toml");
     Ok(path)
+}
+
+// Add Default implementation for Shortcut
+impl Default for Shortcut {
+    fn default() -> Self {
+        Self {
+            key: String::new(),
+            ctrl: false,
+            shift: false,
+            alt: false,
+            meta: false,
+        }
+    }
 }

@@ -1,10 +1,18 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod config;
 mod pty;
+mod validation;
 
 use config::Config;
 use pty::PtyManager;
 use tauri::Window;
+use validation::ValidationError;
+
+#[tauri::command]
+async fn validate_config(app: tauri::AppHandle) -> Result<Vec<ValidationError>, String> {
+    let config = Config::load(&app)?;
+    Ok(config.validate())
+}
 
 #[tauri::command]
 async fn get_config(app: tauri::AppHandle) -> Result<Config, String> {
@@ -30,7 +38,8 @@ pub fn run() {
             destroy_pty,
             write_pty,
             get_config,
-            save_config
+            save_config,
+            validate_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

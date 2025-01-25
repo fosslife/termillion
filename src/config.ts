@@ -66,15 +66,23 @@ export interface Profiles {
   list: Profile[];
 }
 
+export interface Shortcut {
+  key: string; // The main key: 'a', 'b', '1', 'tab', etc.
+  ctrl?: boolean; // Default: false
+  shift?: boolean; // Default: false
+  alt?: boolean; // Default: false
+  meta?: boolean; // Default: false (Windows/Command key)
+}
+
 export interface KeyboardShortcuts {
-  new_tab: string;
-  close_tab: string;
-  split_vertical: string;
-  split_horizontal: string;
-  focus_next_pane: string;
-  focus_previous_pane: string;
-  close_pane: string;
-  // Add more as needed
+  new_tab: Shortcut;
+  close_tab: Shortcut;
+  split_vertical: Shortcut;
+  split_horizontal: Shortcut;
+  focus_next_pane: Shortcut;
+  focus_previous_pane: Shortcut;
+  close_pane: Shortcut;
+  reload_config: Shortcut;
 }
 
 export interface WindowControlsConfig {
@@ -148,4 +156,9 @@ export function isConfig(obj: unknown): obj is Config {
     typeof config.shell === "object" &&
     typeof config.terminal === "object"
   );
+}
+
+export interface ValidationError {
+  component: string;
+  message: string;
 }
