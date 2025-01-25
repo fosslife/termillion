@@ -70,11 +70,6 @@ export const useSplitResize = ({
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isDragging.current || !containerRef.current) {
-        log("MouseMove ignored", {
-          isDragging: isDragging.current,
-          hasContainer: !!containerRef.current,
-          direction,
-        });
         return;
       }
 

@@ -90,13 +90,87 @@ pub struct Profiles {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct KeyboardShortcuts {
+    pub new_tab: String,
+    pub close_tab: String,
+    pub split_vertical: String,
+    pub split_horizontal: String,
+    pub focus_next_pane: String,
+    pub focus_previous_pane: String,
+    pub close_pane: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WindowControlsConfig {
+    pub position: String, // "left" | "right"
+    pub style: String,    // "native" | "custom"
+    pub visible: bool,
+    pub custom: Option<CustomWindowControls>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CustomWindowControls {
+    pub close: String,
+    pub minimize: String,
+    pub maximize: String,
+    pub restore: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TabBarStyle {
+    pub height: u32,
+    pub background_color: String,
+    pub active_tab: TabStyle,
+    pub inactive_tab: TabStyle,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TabStyle {
+    pub background_color: String,
+    pub border_color: String,
+    pub text_color: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TabBarConfig {
+    pub visible: bool,
+    pub position: String, // "top" | "bottom"
+    pub style: TabBarStyle,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SplitPaneConfig {
+    pub divider: DividerConfig,
+    pub min_size: u32,
+    pub animation: AnimationConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DividerConfig {
+    pub size: u32,
+    pub color: String,
+    pub hover_color: String,
+    pub drag_color: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnimationConfig {
+    pub enabled: bool,
+    pub duration: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub version: u32,
     pub font: FontConfig,
     pub theme: ThemeConfig,
-    pub shell: ShellConfig, // Keep for backwards compatibility
+    pub shell: ShellConfig,
     pub terminal: TerminalSettings,
-    pub profiles: Option<Profiles>, // Optional new section
+    pub profiles: Option<Profiles>,
+    pub shortcuts: KeyboardShortcuts,
+    pub window_controls: WindowControlsConfig,
+    pub tab_bar: TabBarConfig,
+    pub split_pane: SplitPaneConfig,
 }
 
 // Config versions for migration
@@ -176,6 +250,52 @@ impl Default for Config {
                     },
                 ],
             }),
+            shortcuts: KeyboardShortcuts {
+                new_tab: "Ctrl+T".into(),
+                close_tab: "Ctrl+W".into(),
+                split_vertical: "Ctrl+Shift+E".into(),
+                split_horizontal: "Ctrl+Shift+O".into(),
+                focus_next_pane: "Ctrl+]".into(),
+                focus_previous_pane: "Ctrl+[".into(),
+                close_pane: "Ctrl+Shift+W".into(),
+            },
+            window_controls: WindowControlsConfig {
+                position: "left".into(),
+                style: "native".into(),
+                visible: true,
+                custom: None,
+            },
+            tab_bar: TabBarConfig {
+                visible: true,
+                position: "top".into(),
+                style: TabBarStyle {
+                    height: 30,
+                    background_color: "#1a1b26".into(),
+                    active_tab: TabStyle {
+                        background_color: "#24283b".into(),
+                        border_color: "#32344a".into(),
+                        text_color: "#a9b1d6".into(),
+                    },
+                    inactive_tab: TabStyle {
+                        background_color: "#1a1b26".into(),
+                        border_color: "#24283b".into(),
+                        text_color: "#787c99".into(),
+                    },
+                },
+            },
+            split_pane: SplitPaneConfig {
+                divider: DividerConfig {
+                    size: 5,
+                    color: "#32344a".into(),
+                    hover_color: "#444b6a".into(),
+                    drag_color: "#56586e".into(),
+                },
+                min_size: 200,
+                animation: AnimationConfig {
+                    enabled: true,
+                    duration: 200,
+                },
+            },
         }
     }
 }
@@ -239,6 +359,52 @@ impl Config {
                 padding: Some(PaddingConfig { x: 12, y: 8 }),
             },
             profiles: None,
+            shortcuts: KeyboardShortcuts {
+                new_tab: "Ctrl+T".into(),
+                close_tab: "Ctrl+W".into(),
+                split_vertical: "Ctrl+Shift+E".into(),
+                split_horizontal: "Ctrl+Shift+O".into(),
+                focus_next_pane: "Ctrl+]".into(),
+                focus_previous_pane: "Ctrl+[".into(),
+                close_pane: "Ctrl+Shift+W".into(),
+            },
+            window_controls: WindowControlsConfig {
+                position: "left".into(),
+                style: "native".into(),
+                visible: true,
+                custom: None,
+            },
+            tab_bar: TabBarConfig {
+                visible: true,
+                position: "top".into(),
+                style: TabBarStyle {
+                    height: 30,
+                    background_color: "#1a1b26".into(),
+                    active_tab: TabStyle {
+                        background_color: "#24283b".into(),
+                        border_color: "#32344a".into(),
+                        text_color: "#a9b1d6".into(),
+                    },
+                    inactive_tab: TabStyle {
+                        background_color: "#1a1b26".into(),
+                        border_color: "#24283b".into(),
+                        text_color: "#787c99".into(),
+                    },
+                },
+            },
+            split_pane: SplitPaneConfig {
+                divider: DividerConfig {
+                    size: 5,
+                    color: "#32344a".into(),
+                    hover_color: "#444b6a".into(),
+                    drag_color: "#56586e".into(),
+                },
+                min_size: 200,
+                animation: AnimationConfig {
+                    enabled: true,
+                    duration: 200,
+                },
+            },
         }
     }
 

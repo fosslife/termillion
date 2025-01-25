@@ -66,6 +66,63 @@ export interface Profiles {
   list: Profile[];
 }
 
+export interface KeyboardShortcuts {
+  new_tab: string;
+  close_tab: string;
+  split_vertical: string;
+  split_horizontal: string;
+  focus_next_pane: string;
+  focus_previous_pane: string;
+  close_pane: string;
+  // Add more as needed
+}
+
+export interface WindowControlsConfig {
+  position: "left" | "right";
+  style: "native" | "custom";
+  visible: boolean;
+  // For custom style only
+  custom?: {
+    close: string; // Icon paths or Unicode
+    minimize: string;
+    maximize: string;
+    restore: string;
+  };
+}
+
+export interface TabBarConfig {
+  visible: boolean;
+  position: "top" | "bottom";
+  style: {
+    height: number;
+    backgroundColor: string;
+    activeTab: {
+      backgroundColor: string;
+      borderColor: string;
+      textColor: string;
+    };
+    inactiveTab: {
+      backgroundColor: string;
+      borderColor: string;
+      textColor: string;
+    };
+  };
+}
+
+export interface SplitPaneConfig {
+  divider: {
+    size: number;
+    color: string;
+    hoverColor: string;
+    dragColor: string;
+  };
+  minSize: number; // Minimum pane size in pixels
+  animation: {
+    enabled: boolean;
+    duration: number;
+  };
+}
+
 export interface Config {
   version: number;
   font: FontConfig;
@@ -73,6 +130,10 @@ export interface Config {
   shell: ShellConfig;
   terminal: TerminalSettings;
   profiles?: Profiles;
+  shortcuts: KeyboardShortcuts;
+  windowControls: WindowControlsConfig;
+  tabBar: TabBarConfig;
+  splitPane: SplitPaneConfig;
 }
 
 // Helper function to type-check config from Rust
