@@ -1,3 +1,5 @@
+import { TerminalPane, TabLayout } from "./types";
+
 interface LayoutResult {
   panes: TerminalPane[];
 }
@@ -85,22 +87,4 @@ export function calculateNewLayout(
 // Helper functions
 function parseGridArea(area: string): number[] {
   return area.split(" / ").map(Number);
-}
-
-function calculateGridTemplate(panes: TerminalPane[]): string {
-  // Calculate grid dimensions based on pane positions
-  const rows = Math.max(
-    ...panes.flatMap((p) => {
-      const [start, , end] = parseGridArea(p.gridArea);
-      return [start, end];
-    })
-  );
-  const cols = Math.max(
-    ...panes.flatMap((p) => {
-      const [, start, , end] = parseGridArea(p.gridArea);
-      return [start, end];
-    })
-  );
-
-  return `repeat(${rows}, 1fr) / repeat(${cols}, 1fr)`;
 }

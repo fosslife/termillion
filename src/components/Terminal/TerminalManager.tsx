@@ -79,7 +79,6 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({
             ...tab,
             terminals: [...tab.terminals, newTerminal],
             panes: newLayout.panes,
-            gridTemplate: newLayout.gridTemplate,
           };
         })
       );
@@ -134,19 +133,13 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         const config = await invoke<Config>("get_config");
-        console.log("[Shortcuts] Key pressed:", {
-          key: event.key,
-          ctrl: event.ctrlKey,
-          shift: event.shiftKey,
-          alt: event.altKey,
-        });
 
         // Split horizontal (Ctrl+Shift+E)
         const horizontalShortcut = config.shortcuts.split_horizontal;
         if (
           event.ctrlKey === horizontalShortcut.ctrl &&
           event.shiftKey === true &&
-          event.key.toLowerCase() === "e"
+          event.key.toLowerCase() === horizontalShortcut.key.toLowerCase()
         ) {
           console.log("[Shortcuts] Horizontal split triggered");
           event.preventDefault();
@@ -161,7 +154,7 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({
         if (
           event.ctrlKey === verticalShortcut.ctrl &&
           event.shiftKey === true &&
-          event.key.toLowerCase() === "o"
+          event.key.toLowerCase() === verticalShortcut.key.toLowerCase()
         ) {
           console.log("[Shortcuts] Vertical split triggered");
           event.preventDefault();

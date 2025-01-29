@@ -18,7 +18,6 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const ptyIdRef = useRef<string | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -46,8 +45,7 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
             .trim(),
         },
         allowProposedApi: true,
-        rows: 24,
-        cols: 80,
+        convertEol: true,
       });
 
       console.log("[Terminal] Created xterm instance");
@@ -61,7 +59,6 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
 
       // Store refs
       xtermRef.current = xterm;
-      fitAddonRef.current = fitAddon;
 
       // Open terminal in container
       console.log("[Terminal] Opening in container");
@@ -99,7 +96,6 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
       const unlistenOutput = await getCurrentWindow().listen(
         `pty://output/${ptyId}`,
         (event: any) => {
-          console.log("[Terminal] Received output:", event.payload);
           xterm?.write(event.payload);
         }
       );
@@ -115,7 +111,7 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
       });
 
       // Handle resize with debounce
-      let resizeTimeout: NodeJS.Timeout;
+      let resizeTimeout: number;
       const handleResize = () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {

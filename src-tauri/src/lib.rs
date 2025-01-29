@@ -5,7 +5,7 @@ mod validation;
 
 use config::Config;
 use pty::PtyManager;
-use tauri::Window;
+use tauri::{Manager, Window};
 use validation::ValidationError;
 
 #[tauri::command]
@@ -41,6 +41,12 @@ pub fn run() {
             save_config,
             validate_config
         ])
+        .setup(|app| {
+            #[cfg(debug_assertions)]
+            app.get_webview_window("main").unwrap().open_devtools();
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -78,9 +84,13 @@ async fn create_pty(
     });
 
     // Create PTY with command and args
-    state
+    let pty_id = state
         .create_pty_with_command(window, cwd, rows, cols, command, args)
-        .await
+        .await;
+
+    dbg!("Created PTY with ID: {}", pty_id.clone());
+
+    Ok(pty_id?)
 }
 
 #[tauri::command]
@@ -95,6 +105,8 @@ async fn resize_pty(
 
 #[tauri::command]
 async fn destroy_pty(state: tauri::State<'_, PtyManager>, pty_id: String) -> Result<(), String> {
+    dbg!("Destroyed PTY with ID: {}", pty_id.clone());
+
     state.destroy_pty(pty_id);
     Ok(())
 }
