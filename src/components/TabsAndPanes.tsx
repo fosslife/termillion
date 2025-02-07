@@ -6,7 +6,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import Terminal from "./Terminal";
+import { Terminal } from "./Terminal/Terminal";
 import { v4 as uuidv4 } from "uuid";
 import { useSplitResize } from "../hooks/useSplitResize";
 
@@ -117,67 +117,49 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setTabs((prev) =>
         prev.map((tab) => {
-          // Helper function to process the content tree
           function processContent(node: Pane | Split): Pane | Split {
-            // If this is a pane we want to split
             if ("terminalId" in node && node.id === paneId) {
               return {
                 direction,
                 ratio: 0.5,
-                first: node, // Keep original pane unchanged
+                first: node,
                 second: {
-                  // Create new pane
                   id: newPaneId,
                   terminalId: newTerminalId,
                 },
               };
             }
-
-            // If this is a different pane
             if ("terminalId" in node) {
               return node;
             }
-
-            // If this is a split, process its children
             const newFirst = processContent(node.first);
             const newSecond = processContent(node.second);
-
-            // If nothing changed in the children
             if (newFirst === node.first && newSecond === node.second) {
               return node;
             }
-
-            // Create new split with updated children
             return {
               ...node,
               first: newFirst,
               second: newSecond,
             };
           }
-
-          // Process the tab's content
           const newContent = processContent(tab.content);
-
-          // If nothing changed in this tab
           if (newContent === tab.content) {
             return tab;
           }
-
-          // Create new tab with updated content
           return { ...tab, content: newContent };
         })
       );
 
-      // Focus the new pane
       setActivePane(newPaneId);
 
-      // Focus the new terminal
       requestAnimationFrame(() => {
         const terminal = document.querySelector(
           `[data-terminal-id="${newTerminalId}"]`
         );
         if (terminal) {
           (terminal as any)._reactInternals?.child?.ref?.current?.focus();
+          (terminal as any)._reactInternals?.child?.ref?.current?.fit();
         }
       });
     },
@@ -354,7 +336,12 @@ const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
           terminalRef.current?.focus();
         }}
       >
-        <Terminal ref={terminalRef} id={content.terminalId} />
+        <Terminal
+          ref={terminalRef}
+          id={content.terminalId}
+          active={activePane === content.id}
+          onFocus={() => setActivePane(content.id)}
+        />
       </div>
     );
   }
