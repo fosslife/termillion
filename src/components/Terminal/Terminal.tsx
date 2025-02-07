@@ -112,7 +112,7 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
 
       // Handle resize with debounce
       let resizeTimeout: number;
-      const handleResize = () => {
+      const handleResize = (width: number, height: number) => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
           if (fitAddon && xterm && ptyId) {
@@ -130,13 +130,20 @@ export const Terminal: React.FC<TerminalProps> = ({ id, active, onFocus }) => {
         }, 100);
       };
 
-      window.addEventListener("resize", handleResize);
+      // Use debounced resize observer
+      const resizeObserver = new ResizeObserver((entries) => {
+        requestAnimationFrame(() => {
+          if (!entries[0]) return;
+          const { width, height } = entries[0].contentRect;
+          handleResize(width, height);
+        });
+      });
 
       // Set up cleanup
       cleanup = () => {
         clearTimeout(resizeTimeout);
         unlistenOutput();
-        window.removeEventListener("resize", handleResize);
+        resizeObserver.disconnect();
       };
 
       // Initial focus if active

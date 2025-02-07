@@ -364,8 +364,31 @@ const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
       className={`split ${content.direction}`}
       ref={containerRef}
       data-split-direction={content.direction}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+      }}
     >
-      <div className="split-first" style={{ flex: ratio }} data-ratio={ratio}>
+      <div
+        className="split-first"
+        style={{
+          position: "absolute",
+          ...(content.direction === "horizontal"
+            ? {
+                width: "100%",
+                height: `${ratio * 100}%`,
+                top: 0,
+                left: 0,
+              }
+            : {
+                width: `${ratio * 100}%`,
+                height: "100%",
+                left: 0,
+                top: 0,
+              }),
+        }}
+      >
         <PaneView content={content.first} />
       </div>
       <div
@@ -375,8 +398,22 @@ const PaneView: React.FC<{ content: Pane | Split }> = ({ content }) => {
       />
       <div
         className="split-second"
-        style={{ flex: 1 - ratio }}
-        data-ratio={1 - ratio}
+        style={{
+          position: "absolute",
+          ...(content.direction === "horizontal"
+            ? {
+                width: "100%",
+                height: `${(1 - ratio) * 100}%`,
+                top: `${ratio * 100}%`,
+                left: 0,
+              }
+            : {
+                width: `${(1 - ratio) * 100}%`,
+                height: "100%",
+                left: `${ratio * 100}%`,
+                top: 0,
+              }),
+        }}
       >
         <PaneView content={content.second} />
       </div>

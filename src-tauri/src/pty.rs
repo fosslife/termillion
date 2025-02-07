@@ -125,16 +125,21 @@ impl PtyManager {
     }
 
     pub fn write_pty(&self, pty_id: String, data: String) -> Result<(), String> {
-        let mut ptys = self.ptys.lock().unwrap();
-        if let Some(pty) = ptys.get_mut(&pty_id) {
-            pty.writer
-                .write_all(data.as_bytes())
-                .map_err(|e| e.to_string())?;
-            pty.writer.flush().map_err(|e| e.to_string())?;
-            Ok(())
-        } else {
-            Err("PTY not found".to_string())
-        }
+        let mut ptys = self
+            .ptys
+            .lock()
+            .map_err(|e| format!("Mutex poison error: {}", e))?;
+        let pty = ptys
+            .get_mut(&pty_id)
+            .ok_or_else(|| format!("PTY {} not found", pty_id))?;
+
+        pty.writer
+            .write_all(data.as_bytes())
+            .map_err(|e| format!("Write failed: {}", e))?;
+        pty.writer
+            .flush()
+            .map_err(|e| format!("Flush failed: {}", e))?;
+        Ok(())
     }
 
     pub fn resize_pty(&self, pty_id: String, rows: u16, cols: u16) -> Result<(), String> {

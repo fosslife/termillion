@@ -140,3 +140,18 @@ fn validate_shortcuts(shortcuts: &KeyboardShortcuts) -> Vec<ValidationError> {
 
     errors
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shortcut_conflict() {
+        let mut shortcuts = KeyboardShortcuts::default();
+        shortcuts.new_tab.key = "t".into();
+        shortcuts.close_tab.key = "t".into();
+
+        let errors = validate_shortcuts(&shortcuts);
+        assert!(errors.iter().any(|e| e.message.contains("conflicts")));
+    }
+}

@@ -23,3 +23,16 @@ export interface TabLayout {
   panes: TerminalPane[];
   gridTemplate: string;
 }
+
+// Add discriminated unions for better type checking
+export type SplitDirection = "horizontal" | "vertical";
+
+export type PaneContent =
+  | { type: "pane"; id: string; terminalId: string }
+  | {
+      type: "split";
+      direction: SplitDirection;
+      ratio: number;
+      first: PaneContent;
+      second: PaneContent;
+    };
