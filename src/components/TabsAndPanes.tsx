@@ -441,7 +441,7 @@ export const TabsAndPanes: React.FC = () => {
             key={tab.id}
             className={`tab-content ${activeTabId === tab.id ? "active" : ""}`}
           >
-            <PaneView content={tab.content} />
+            {activeTabId === tab.id && <PaneView content={tab.content} />}
           </div>
         ))}
       </div>

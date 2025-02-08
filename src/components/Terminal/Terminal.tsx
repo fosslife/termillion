@@ -75,7 +75,7 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
         // Wait for next frame to ensure terminal is rendered
         await new Promise((resolve) => requestAnimationFrame(resolve));
 
-        console.log("[Terminal] Fitting terminal");
+        console.log("[Terminal] Fitting terminal with id", id);
         fitAddon.fit();
 
         // Create PTY with current dimensions

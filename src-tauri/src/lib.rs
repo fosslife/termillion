@@ -73,7 +73,7 @@ async fn create_pty(
 ) -> Result<String, String> {
     let config = config::Config::load(&app)?;
 
-    // Use provided command or fall back to default shell
+    // Use provided command or fall back to default shell from config
     let command = command.unwrap_or_else(|| {
         #[cfg(target_os = "windows")]
         return config.shell.windows.clone();
@@ -86,11 +86,14 @@ async fn create_pty(
     // Create PTY with command and args
     let pty_id = state
         .create_pty_with_command(window, cwd, rows, cols, command, args)
-        .await;
+        .await?;
 
-    dbg!("Created PTY with ID: {}", pty_id.clone());
+    // Add health check
+    if !state.is_pty_alive(&pty_id) {
+        return Err("PTY failed to start properly".to_string());
+    }
 
-    Ok(pty_id?)
+    Ok(pty_id)
 }
 
 #[tauri::command]

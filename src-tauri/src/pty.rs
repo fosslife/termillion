@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
-use tauri::{async_runtime::spawn, Manager, Window};
+use tauri::{async_runtime::spawn, Window};
 use uuid::Uuid;
 
 struct PtyInstance {
@@ -86,39 +86,49 @@ impl PtyManager {
 
         // Set up output handling
         let pty_id_clone = pty_id.clone();
-        let ptys_clone = Arc::clone(&self.ptys);
+        let ptys_clone_err = Arc::clone(&self.ptys);
         let window_clone = window.clone();
 
         spawn(async move {
-            let mut buffer = [0u8; 4096];
-            loop {
-                match reader.read(&mut buffer) {
-                    Ok(0) => {
-                        // EOF - PTY has closed
-                        window_clone
-                            .emit(&format!("pty://exit/{}", pty_id_clone), ())
-                            .unwrap_or_else(|e| eprintln!("Failed to emit PTY exit: {}", e));
-                        break;
-                    }
-                    Ok(n) => {
-                        let output = String::from_utf8_lossy(&buffer[..n]);
-                        window_clone
-                            .emit(
-                                &format!("pty://output/{}", pty_id_clone),
-                                output.to_string(),
-                            )
-                            .unwrap_or_else(|e| eprintln!("Failed to emit PTY output: {}", e));
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to read from PTY: {}", e);
-                        break;
+            async {
+                let mut buffer = vec![0u8; 8192];
+                loop {
+                    match reader.read(&mut buffer) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            if let Ok(output) = String::from_utf8(buffer[..n].to_vec()) {
+                                if let Err(e) = window_clone
+                                    .emit(&format!("pty://output/{}", pty_id_clone), output)
+                                {
+                                    eprintln!("Failed to emit PTY output: {}", e);
+                                    break;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to read from PTY: {}", e);
+                            break;
+                        }
                     }
                 }
             }
+            .await;
 
-            // Cleanup when PTY exits
-            let mut ptys = ptys_clone.lock().unwrap();
-            ptys.remove(&pty_id_clone);
+            // Proper cleanup
+            let mut ptys = ptys_clone_err.lock().unwrap();
+            if let Some(mut pty) = ptys.remove(&pty_id_clone) {
+                if let Err(e) = pty.child.kill() {
+                    eprintln!("Failed to kill PTY child process: {}", e);
+                }
+                if let Err(e) = pty.child.wait() {
+                    eprintln!("Failed to wait for PTY child process: {}", e);
+                }
+            }
+
+            // Notify frontend of PTY exit
+            if let Err(e) = window_clone.emit(&format!("pty://exit/{}", pty_id_clone), ()) {
+                eprintln!("Failed to emit PTY exit: {}", e);
+            }
         });
 
         Ok(pty_id)
@@ -129,16 +139,24 @@ impl PtyManager {
             .ptys
             .lock()
             .map_err(|e| format!("Mutex poison error: {}", e))?;
+
         let pty = ptys
             .get_mut(&pty_id)
             .ok_or_else(|| format!("PTY {} not found", pty_id))?;
 
-        pty.writer
-            .write_all(data.as_bytes())
-            .map_err(|e| format!("Write failed: {}", e))?;
+        // Write in chunks for better performance with large data
+        const CHUNK_SIZE: usize = 4096;
+        let bytes = data.as_bytes();
+        for chunk in bytes.chunks(CHUNK_SIZE) {
+            pty.writer
+                .write_all(chunk)
+                .map_err(|e| format!("Write failed: {}", e))?;
+        }
+
         pty.writer
             .flush()
             .map_err(|e| format!("Flush failed: {}", e))?;
+
         Ok(())
     }
 
@@ -159,9 +177,26 @@ impl PtyManager {
         }
     }
 
+    pub fn is_pty_alive(&self, pty_id: &str) -> bool {
+        if let Ok(mut ptys) = self.ptys.lock() {
+            if let Some(pty) = ptys.get_mut(pty_id) {
+                return match pty.child.try_wait() {
+                    Ok(None) => true,     // Process is still running
+                    Ok(Some(_)) => false, // Process has exited
+                    Err(_) => false,      // Error checking process status
+                };
+            }
+        }
+        false
+    }
+
     pub fn destroy_pty(&self, pty_id: String) {
-        let mut ptys = self.ptys.lock().unwrap();
-        ptys.remove(&pty_id);
+        if let Ok(mut ptys) = self.ptys.lock() {
+            if let Some(mut pty) = ptys.remove(&pty_id) {
+                let _ = pty.child.kill();
+                let _ = pty.child.wait();
+            }
+        }
     }
 }
 
