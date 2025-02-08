@@ -153,14 +153,16 @@ export const TabsProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setActivePane(newPaneId);
 
+      // This might need to trigger a resize for all terminals
       requestAnimationFrame(() => {
-        const terminal = document.querySelector(
-          `[data-terminal-id="${newTerminalId}"]`
-        );
-        if (terminal) {
-          (terminal as any)._reactInternals?.child?.ref?.current?.focus();
-          (terminal as any)._reactInternals?.child?.ref?.current?.fit();
-        }
+        const terminals = document.querySelectorAll(".terminal-container");
+        terminals.forEach((terminal) => {
+          const instance = (terminal as any)._reactInternals?.child?.ref
+            ?.current;
+          if (instance?.fit) {
+            instance.fit();
+          }
+        });
       });
     },
     []
