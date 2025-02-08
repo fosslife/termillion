@@ -165,6 +165,7 @@ pub struct DividerConfig {
     pub color: String,
     pub hover_color: String,
     pub drag_color: String,
+    pub hit_size: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -344,6 +345,7 @@ impl Default for Config {
                     color: "#32344a".into(),
                     hover_color: "#444b6a".into(),
                     drag_color: "#56586e".into(),
+                    hit_size: 9,
                 },
                 min_size: 200,
                 animation: AnimationConfig {
@@ -494,6 +496,7 @@ impl Config {
                     color: "#32344a".into(),
                     hover_color: "#444b6a".into(),
                     drag_color: "#56586e".into(),
+                    hit_size: 9,
                 },
                 min_size: 200,
                 animation: AnimationConfig {

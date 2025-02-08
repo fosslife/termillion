@@ -5,7 +5,11 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from "react";
-import { Terminal as XTerm } from "@xterm/xterm";
+import {
+  ITerminalInitOnlyOptions,
+  ITerminalOptions,
+  Terminal as XTerm,
+} from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -13,6 +17,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { homeDir } from "@tauri-apps/api/path";
 import "@xterm/xterm/css/xterm.css";
+import { useConfig } from "../../contexts/ConfigContext";
 
 interface TerminalProps {
   id: string;
@@ -24,6 +29,7 @@ export const Terminal = forwardRef<
   { focus: () => void; fit: () => void },
   TerminalProps
 >(({ id, active, onFocus }, ref) => {
+  const { config } = useConfig();
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const ptyIdRef = useRef<string | null>(null);
@@ -51,15 +57,10 @@ export const Terminal = forwardRef<
     let mounted = true;
     let cleanup: (() => void) | null = null;
 
-    console.log(`[Terminal ${id}] Effect starting, mounted:`, mounted);
+    console.log(`[Terminal ${id}] Config for initialization:`, config);
 
     const initialize = async () => {
-      console.log(`[Terminal ${id}] Initializing...`, {
-        id,
-        containerRef: !!containerRef.current,
-        xtermRef: !!xtermRef.current,
-        ptyIdRef: ptyIdRef.current,
-      });
+      console.log(`[Terminal ${id}] Initializing with config:`, config);
 
       if (!containerRef.current || xtermRef.current) {
         console.log(
@@ -68,23 +69,26 @@ export const Terminal = forwardRef<
         return;
       }
 
-      // Create terminal with proper options
-      const xterm = new XTerm({
+      // Log terminal options before creating
+      const terminalOptions: ITerminalOptions & ITerminalInitOnlyOptions = {
         cursorBlink: true,
-        cursorStyle: "block",
-        fontSize: 14,
-        fontFamily: "monospace",
+        cursorStyle: "block" as const,
+        fontSize: config?.font.size ?? 14,
+        fontFamily: config
+          ? `${config.font.family}, ${config.font.fallback_family}`
+          : "monospace",
+        lineHeight: config?.font.line_height ?? 1.2,
         theme: {
-          background: getComputedStyle(document.documentElement)
-            .getPropertyValue("--terminal-bg")
-            .trim(),
-          foreground: getComputedStyle(document.documentElement)
-            .getPropertyValue("--terminal-fg")
-            .trim(),
+          background: config?.theme.background ?? "#1a1b26",
+          foreground: config?.theme.foreground ?? "#a9b1d6",
+          cursor: config?.theme.cursor ?? "#c0caf5",
         },
         allowProposedApi: true,
         convertEol: true,
-      });
+      };
+      console.log(`[Terminal ${id}] Terminal options:`, terminalOptions);
+
+      const xterm = new XTerm(terminalOptions);
 
       console.log("[Terminal] Created xterm instance");
 
@@ -211,7 +215,7 @@ export const Terminal = forwardRef<
         xtermRef.current = null;
       }
     };
-  }, [id]);
+  }, [id, config]);
 
   // Add resize observer that calls fit
   useEffect(() => {

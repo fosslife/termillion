@@ -54,3 +54,81 @@
 .tab-panel.active {
   visibility: visible;
 }
+
+.terminal-divider {
+  background-color: var(--split-divider-color, #32344a);
+  transition: background-color 0.2s;
+}
+
+/* Horizontal divider (for horizontal splits) */
+.terminal-divider[style*="row-resize"] {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--split-divider-color, #32344a) 20%,
+    var(--split-divider-color, #32344a) 80%,
+    transparent 100%
+  );
+}
+
+/* Vertical divider (for vertical splits) */
+.terminal-divider[style*="col-resize"] {
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--split-divider-color, #32344a) 20%,
+    var(--split-divider-color, #32344a) 80%,
+    transparent 100%
+  );
+}
+
+.terminal-divider:hover[style*="row-resize"] {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--split-divider-hover, #444b6a) 20%,
+    var(--split-divider-hover, #444b6a) 80%,
+    transparent 100%
+  );
+}
+
+.terminal-divider:hover[style*="col-resize"] {
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--split-divider-hover, #444b6a) 20%,
+    var(--split-divider-hover, #444b6a) 80%,
+    transparent 100%
+  );
+}
+
+.terminal-divider:active[style*="row-resize"] {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--split-divider-drag, #56586e) 20%,
+    var(--split-divider-drag, #56586e) 80%,
+    transparent 100%
+  );
+}
+
+.terminal-divider:active[style*="col-resize"] {
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--split-divider-drag, #56586e) 20%,
+    var(--split-divider-drag, #56586e) 80%,
+    transparent 100%
+  );
+}
+
+/* Add a subtle shadow for better visibility */
+.terminal-divider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}

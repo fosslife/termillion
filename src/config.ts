@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+
 export interface FontConfig {
   family: string;
   fallback_family: string;
@@ -119,15 +121,16 @@ export interface TabBarConfig {
 
 export interface SplitPaneConfig {
   divider: {
-    size: number;
-    color: string;
-    hoverColor: string;
-    dragColor: string;
+    size: number; // Width/height of the divider
+    color: string; // Normal state color
+    hoverColor: string; // Color when mouse hovers
+    dragColor: string; // Color when being dragged
+    hitSize: number; // Size of the clickable/draggable area (larger than visible size)
   };
   minSize: number; // Minimum pane size in pixels
   animation: {
-    enabled: boolean;
-    duration: number;
+    enabled: boolean; // Enable/disable resize animation
+    duration: number; // Animation duration in ms
   };
 }
 
@@ -161,4 +164,64 @@ export function isConfig(obj: unknown): obj is Config {
 export interface ValidationError {
   component: string;
   message: string;
+}
+
+// Default config
+const defaultConfig: Config = {
+  version: 1,
+  font: {
+    family: "monospace",
+    fallback_family: "monospace",
+    size: 14,
+    line_height: 1.2,
+  },
+  theme: {
+    background: "#1a1b26",
+    foreground: "#a9b1d6",
+    cursor: "#c0caf5",
+    selection: "#283457",
+  },
+  shell: {
+    windows: "powershell.exe",
+    linux: "/bin/bash",
+    macos: "/bin/zsh",
+  },
+  terminal: {
+    scrollback: 10000,
+    padding: { x: 10, y: 10 },
+  },
+  shortcuts: {
+    // ... your default shortcuts ...
+  },
+  splitPane: {
+    divider: {
+      size: 5,
+      color: "#32344a",
+      hoverColor: "#444b6a",
+      dragColor: "#56586e",
+      hitSize: 9,
+    },
+    minSize: 200,
+    animation: {
+      enabled: true,
+      duration: 200,
+    },
+  },
+  // ... other config sections ...
+};
+
+let configInstance: Config | null = null;
+
+export async function getConfig(): Promise<Config> {
+  if (!configInstance) {
+    configInstance = await invoke<Config>("get_config");
+  }
+  return configInstance;
+}
+
+export const config = defaultConfig; // Fallback until real config is loaded
+
+// Function to update config
+export function updateConfig(newConfig: Config) {
+  configInstance = newConfig;
 }
