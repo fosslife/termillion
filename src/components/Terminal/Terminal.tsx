@@ -15,7 +15,7 @@ interface TerminalProps {
 }
 
 export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
-  ({ id, active, onFocus }, ref) => {
+  ({ id, active, onFocus }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<XTerm | null>(null);
     const ptyIdRef = useRef<string | null>(null);
@@ -24,12 +24,22 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
       let mounted = true;
       let cleanup: (() => void) | null = null;
 
+      console.log(`[Terminal ${id}] Effect starting, mounted:`, mounted);
+
       const initialize = async () => {
-        console.log("[Terminal] Initializing...", {
+        console.log(`[Terminal ${id}] Initializing...`, {
           id,
           containerRef: !!containerRef.current,
+          xtermRef: !!xtermRef.current,
+          ptyIdRef: ptyIdRef.current,
         });
-        if (!containerRef.current || xtermRef.current) return;
+
+        if (!containerRef.current || xtermRef.current) {
+          console.log(
+            `[Terminal ${id}] Skipping initialization - already initialized or no container`
+          );
+          return;
+        }
 
         // Create terminal with proper options
         const xterm = new XTerm({
@@ -56,12 +66,12 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
         xterm.loadAddon(fitAddon);
         xterm.loadAddon(new WebLinksAddon());
 
-        if (!mounted) return;
+        if (!mounted) {
+          xterm.dispose();
+          return;
+        }
 
-        // Store refs
         xtermRef.current = xterm;
-
-        // Open terminal in container
         console.log("[Terminal] Opening in container");
         xterm.open(containerRef.current);
 
@@ -72,14 +82,12 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
           console.warn("WebGL addon failed to load:", e);
         }
 
-        // Wait for next frame to ensure terminal is rendered
         await new Promise((resolve) => requestAnimationFrame(resolve));
-
-        console.log("[Terminal] Fitting terminal with id", id);
+        console.log(`[Terminal] Fitting terminal with id ${id}`);
         fitAddon.fit();
 
-        // Create PTY with current dimensions
-        console.log("[Terminal] Creating PTY");
+        // Create PTY
+        console.log(`[Terminal ${id}] Creating PTY`);
         const cwd = await homeDir();
         const ptyId = await invoke<string>("create_pty", {
           cwd,
@@ -87,13 +95,16 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
           cols: xterm.cols,
         });
 
-        console.log("[Terminal] PTY created:", ptyId);
+        if (!mounted) {
+          console.log(`[Terminal ${id}] Cleaning up PTY after unmount:`, ptyId);
+          await invoke("destroy_pty", { ptyId });
+          return;
+        }
 
-        if (!mounted) return;
-
+        console.log(`[Terminal ${id}] PTY created:`, ptyId);
         ptyIdRef.current = ptyId;
 
-        // Set up event listeners
+        // Set up event listeners and handlers
         const unlistenOutput = await getCurrentWindow().listen(
           `pty://output/${ptyId}`,
           (event: any) => {
@@ -101,7 +112,6 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
           }
         );
 
-        // Handle input
         xterm.onData((data) => {
           if (ptyIdRef.current) {
             invoke("write_pty", {
@@ -113,14 +123,14 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
 
         // Handle resize with debounce
         let resizeTimeout: number;
-        const handleResize = (width: number, height: number) => {
+        const handleResize = () => {
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(() => {
-            if (fitAddon && xterm && ptyId) {
+            if (fitAddon && xterm && ptyIdRef.current) {
               try {
                 fitAddon.fit();
                 invoke("resize_pty", {
-                  ptyId,
+                  ptyId: ptyIdRef.current,
                   rows: xterm.rows,
                   cols: xterm.cols,
                 }).catch(console.error);
@@ -131,23 +141,19 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
           }, 100);
         };
 
-        // Use debounced resize observer
         const resizeObserver = new ResizeObserver((entries) => {
           requestAnimationFrame(() => {
             if (!entries[0]) return;
-            const { width, height } = entries[0].contentRect;
-            handleResize(width, height);
+            handleResize();
           });
         });
 
-        // Set up cleanup
         cleanup = () => {
           clearTimeout(resizeTimeout);
           unlistenOutput();
           resizeObserver.disconnect();
         };
 
-        // Initial focus if active
         if (active) {
           xterm.focus();
         }
@@ -156,31 +162,28 @@ export const Terminal = forwardRef<{ focus: () => void }, TerminalProps>(
       initialize().catch(console.error);
 
       return () => {
+        console.log(`[Terminal ${id}] Cleanup starting, mounted:`, mounted);
         mounted = false;
-        if (cleanup) cleanup();
+
+        if (cleanup) {
+          console.log(`[Terminal ${id}] Running cleanup handlers`);
+          cleanup();
+        }
 
         if (ptyIdRef.current) {
-          invoke("destroy_pty", { ptyId: ptyIdRef.current }).catch(
-            console.error
-          );
+          console.log(`[Terminal ${id}] Destroying PTY:`, ptyIdRef.current);
+          const ptyId = ptyIdRef.current;
           ptyIdRef.current = null;
+          invoke("destroy_pty", { ptyId }).catch(console.error);
         }
 
         if (xtermRef.current) {
+          console.log(`[Terminal ${id}] Disposing xterm instance`);
           xtermRef.current.dispose();
           xtermRef.current = null;
         }
       };
     }, [id]);
-
-    // Separate effect for handling active state
-    useEffect(() => {
-      if (xtermRef.current) {
-        if (active) {
-          xtermRef.current.focus();
-        }
-      }
-    }, [active]);
 
     // Handle container clicks for focus
     const handleContainerClick = useCallback(

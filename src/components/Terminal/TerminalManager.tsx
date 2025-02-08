@@ -5,9 +5,8 @@ import React, {
   useCallback,
   useEffect,
 } from "react";
-import { Terminal as XTerm } from "@xterm/xterm";
 import { v4 as uuidv4 } from "uuid";
-import { Terminal, TabLayout, TerminalPane } from "./types";
+import { Terminal, TabLayout } from "./types";
 import { createInitialTab } from "./utils";
 import { invoke } from "@tauri-apps/api/core";
 import { Config } from "../../config";

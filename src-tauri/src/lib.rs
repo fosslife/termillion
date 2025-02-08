@@ -3,6 +3,8 @@ mod config;
 mod pty;
 mod validation;
 
+use std::env;
+
 use config::Config;
 use pty::PtyManager;
 use tauri::{Manager, Window};
@@ -42,6 +44,12 @@ pub fn run() {
             validate_config
         ])
         .setup(|app| {
+            let process_arg: Vec<String> = env::args().collect();
+            if process_arg.contains(&"--debug".to_string()) {
+                // in prod build, if --debug is passed, open devtools
+                app.get_webview_window("main").unwrap().open_devtools();
+            }
+
             #[cfg(debug_assertions)]
             app.get_webview_window("main").unwrap().open_devtools();
 

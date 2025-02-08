@@ -1,6 +1,7 @@
 import React from "react";
 import { Terminal } from "./Terminal";
 import "./TerminalView.css";
+import { TabLayout } from "./types";
 
 interface TerminalViewProps {
   tab: TabLayout;

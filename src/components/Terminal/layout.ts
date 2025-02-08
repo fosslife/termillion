@@ -83,8 +83,3 @@ export function calculateNewLayout(
 
   return { panes: newPanes };
 }
-
-// Helper functions
-function parseGridArea(area: string): number[] {
-  return area.split(" / ").map(Number);
-}
