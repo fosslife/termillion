@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 type Tab = {
   id: string;
@@ -19,17 +19,25 @@ type TabsProps = {
 
 type TabListProps = {
   tabs: Tab[];
+  onClose: (id: string) => void;
 };
 
 type TabProps = {
   id: string;
   children: React.ReactNode;
+  onActivate?: () => void;
 };
 
-function Tab({ id, children }: TabProps) {
+function Tab({ id, children, onActivate }: TabProps) {
   const context = useContext(TabsContext);
   if (!context) throw new Error("Tab must be used within Tabs");
   const { activeTab } = context;
+
+  useEffect(() => {
+    if (activeTab === id && onActivate) {
+      onActivate();
+    }
+  }, [activeTab, id, onActivate]);
 
   return (
     <div
@@ -60,7 +68,7 @@ function Tabs({ children, defaultTab }: TabsProps) {
   );
 }
 
-function TabsList({ tabs }: TabListProps) {
+function TabsList({ tabs, onClose }: TabListProps) {
   const context = useContext(TabsContext);
   if (!context) throw new Error("TabsList must be used within Tabs");
   const { activeTab, setActiveTab } = context;
@@ -70,8 +78,9 @@ function TabsList({ tabs }: TabListProps) {
       {tabs.map((tab) => (
         <div
           key={tab.id}
-          onClick={() => setActiveTab(tab.id)}
           style={{
+            display: "flex",
+            alignItems: "center",
             padding: "8px 16px",
             cursor: "pointer",
             backgroundColor: activeTab === tab.id ? "#333" : "transparent",
@@ -82,7 +91,25 @@ function TabsList({ tabs }: TabListProps) {
             userSelect: "none",
           }}
         >
-          {tab.label}
+          <div onClick={() => setActiveTab(tab.id)}>{tab.label}</div>
+          {tabs.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose(tab.id);
+              }}
+              style={{
+                marginLeft: "8px",
+                background: "none",
+                border: "none",
+                color: "inherit",
+                cursor: "pointer",
+                padding: "0 4px",
+              }}
+            >
+              ×
+            </button>
+          )}
         </div>
       ))}
     </div>
