@@ -2,24 +2,25 @@ import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ValidationError } from "./config";
 import WindowControls from "./components/WindowControls";
-import { TabsProvider } from "./components/TabsAndPanes";
-import "./styles/tabs-and-panes.css";
 import "./styles/error-banner.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+
 import {
   saveWindowState,
   restoreStateCurrent,
   StateFlags,
 } from "@tauri-apps/plugin-window-state";
 import ErrorBanner from "./components/ErrorBanner";
-import { TerminalProvider } from "./components/Terminal/TerminalManager";
-import { TerminalTabs } from "./components/Terminal/TerminalTabs";
 import { ConfigProvider, useConfig } from "./contexts/ConfigContext";
 import { isFontAvailable, loadGoogleFont } from "./font-checker";
+import { Terminal } from "./components/Terminal/Terminal";
+import { Tabs, TabsList, Tab } from "./components/Terminal/Tabs";
 
 // Separate component for app content to use config hook
 const AppContent: React.FC = () => {
   const { config, loading } = useConfig();
+  const [activeTab, setActiveTab] = useState("hello");
+  const [activeTerminal, setActiveTerminal] = useState("terminal-1");
   console.log("[App] Config loaded:", { config, loading });
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
@@ -76,11 +77,42 @@ const AppContent: React.FC = () => {
 
   if (loading) return null; // Or loading indicator
 
+  const tabs = [
+    { id: "hello", label: "Hello" },
+    { id: "world", label: "World" },
+    { id: "third", label: "Third Tab" },
+  ];
+
   return (
     <div className="app">
       <ErrorBanner errors={validationErrors} />
       <WindowControls />
-      <TerminalTabs />
+      <Tabs defaultTab="hello">
+        <TabsList tabs={tabs} />
+        <div style={{ position: "relative", flex: 1 }}>
+          <Tab id="hello">
+            <Terminal
+              active={true}
+              id="terminal-1"
+              onFocus={() => setActiveTerminal("terminal-1")}
+            />
+          </Tab>
+          <Tab id="world">
+            <Terminal
+              active={true}
+              id="terminal-2"
+              onFocus={() => setActiveTerminal("terminal-2")}
+            />
+          </Tab>
+          <Tab id="third">
+            <Terminal
+              active={true}
+              id="terminal-3"
+              onFocus={() => setActiveTerminal("terminal-3")}
+            />
+          </Tab>
+        </div>
+      </Tabs>
     </div>
   );
 };
@@ -88,11 +120,7 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <ConfigProvider>
-      <TerminalProvider>
-        <TabsProvider>
-          <AppContent />
-        </TabsProvider>
-      </TerminalProvider>
+      <AppContent />
     </ConfigProvider>
   );
 };
