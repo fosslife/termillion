@@ -7,7 +7,26 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="app">
+      <div data-tauri-drag-region class="titlebar">
+        <div class="titlebar-button" data-window-control="minimize">
+          <img
+            src="https://api.iconify.design/mdi:window-minimize.svg"
+            alt="minimize"
+          />
+        </div>
+        <div class="titlebar-button" data-window-control="maximize">
+          <img
+            src="https://api.iconify.design/mdi:window-maximize.svg"
+            alt="maximize"
+          />
+        </div>
+        <div class="titlebar-button" data-window-control="close">
+          <img src="https://api.iconify.design/mdi:close.svg" alt="close" />
+        </div>
+      </div>
+      <div id="terminal-container"></div>
+    </div>
+    <script type="module" src="/srcjs/main.ts"></script>
   </body>
 </html>
