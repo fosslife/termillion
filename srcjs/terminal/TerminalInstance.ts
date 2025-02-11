@@ -18,6 +18,8 @@ export class TerminalInstance {
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private unlistenOutput: (() => void) | null = null;
+  private lastScrollPosition = 0;
+  private visible = false;
 
   constructor(
     private readonly config: Config,
@@ -50,6 +52,7 @@ export class TerminalInstance {
       },
       allowProposedApi: true,
       convertEol: true,
+      scrollback: this.config.terminal?.scrollback ?? 5000,
       rows: 40, // Initial size
       cols: 100,
     };
@@ -112,6 +115,10 @@ export class TerminalInstance {
 
     // Initial focus
     this.focus();
+
+    // Track visibility changes
+    this.visible = true;
+    this.fit(); // Initial fit
   }
 
   private handleClick = (e: MouseEvent) => {
@@ -122,13 +129,34 @@ export class TerminalInstance {
   };
 
   focus(): void {
-    this.xterm?.focus();
+    if (this.xterm) {
+      // Store scroll position before any operations
+      this.lastScrollPosition = this.xterm.buffer.active.viewportY;
+      this.xterm.focus();
+    }
   }
 
   fit(): void {
     if (!this.fitAddon || !this.xterm || !this.ptyId) return;
 
+    // Store current viewport position
+    const buffer = this.xterm.buffer.active;
+    const currentLine = buffer.baseY + buffer.viewportY;
+    const isAtBottom = currentLine + this.xterm.rows >= buffer.length;
+
     this.fitAddon.fit();
+
+    // After fit, restore position or stay at bottom
+    requestAnimationFrame(() => {
+      if (isAtBottom) {
+        this.xterm?.scrollToBottom();
+      } else {
+        // Try to maintain relative position
+        this.xterm?.scrollToLine(currentLine);
+      }
+      this.xterm?.refresh(0, this.xterm.rows - 1);
+    });
+
     invoke("resize_pty", {
       ptyId: this.ptyId,
       rows: this.xterm.rows,

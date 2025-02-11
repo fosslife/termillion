@@ -13,6 +13,7 @@
 .tab {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 0 16px;
   height: 28px;
   color: var(--terminal-fg, #a9b1d6);
@@ -27,4 +28,33 @@
 .tab.active {
   background: var(--terminal-bg, #1a1b26);
   color: #fff;
+}
+
+.tab.new-tab {
+  padding: 0 12px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.tab span {
+  cursor: pointer;
+}
+
+.tab-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.tab-close:hover {
+  opacity: 1;
 }
