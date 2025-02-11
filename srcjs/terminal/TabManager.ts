@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { Config } from "../config";
 import { TerminalManager } from "./TerminalManager";
 
@@ -158,27 +159,8 @@ export class TabManager {
     // Clean up terminal
     const terminal = this.terminalManager.getTerminal(tab.terminalId);
     if (terminal) {
-      try {
-        // Send SIGINT (Ctrl+C) before destroying
-        await invoke("write_pty", {
-          ptyId: tab.terminalId,
-          data: "\x03",
-        });
-
-        // Small delay to let the process handle the signal
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        await this.terminalManager.destroyTerminal(tab.terminalId);
-      } catch (error) {
-        console.error("Failed to destroy terminal:", error);
-        // Maybe the process is still running
-        if (confirm("Terminal may have running processes. Force close?")) {
-          // Force destroy the terminal
-          await this.terminalManager.destroyTerminal(tab.terminalId);
-        } else {
-          return; // Don't proceed with closing if user cancels
-        }
-      }
+      // TODO: Add proper handling of running processes before closing tab
+      await this.terminalManager.destroyTerminal(tab.terminalId);
     }
 
     // Remove container
