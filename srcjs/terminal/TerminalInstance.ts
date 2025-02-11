@@ -20,7 +20,6 @@ export class TerminalInstance {
   private unlistenOutput: (() => void) | null = null;
 
   constructor(
-    private readonly id: string,
     private readonly config: Config,
     private readonly onFocus?: () => void
   ) {}

@@ -7,7 +7,7 @@ export class TerminalManager {
   constructor(private readonly config: Config) {}
 
   createTerminal(id: string, onFocus?: () => void): TerminalInstance {
-    const terminal = new TerminalInstance(id, this.config, onFocus);
+    const terminal = new TerminalInstance(this.config, onFocus);
     this.terminals.set(id, terminal);
     return terminal;
   }

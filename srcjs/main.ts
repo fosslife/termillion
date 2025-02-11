@@ -2,12 +2,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import "./styles/window-controls.css";
 import "./styles/terminal.css";
+import "./styles/tabs.css";
 import "@xterm/xterm/css/xterm.css";
-import { TerminalManager } from "./terminal/TerminalManager";
+import { TabManager } from "./terminal/TabManager";
 import type { Config } from "./config";
 
 class App {
-  private terminalManager: TerminalManager | null = null;
+  private tabManager: TabManager | null = null;
+  private appWindow = getCurrentWindow();
 
   constructor() {
     this.initializeApp();
@@ -20,17 +22,14 @@ class App {
     // Load config
     const config = await invoke<Config>("get_config");
 
-    // Initialize terminal manager
-    this.terminalManager = new TerminalManager(config);
+    // Initialize tab manager
+    this.tabManager = new TabManager(config);
 
-    // Create first terminal
-    const terminal = this.terminalManager.createTerminal(crypto.randomUUID());
+    // Create first tab
+    await this.tabManager.createFirstTab();
 
-    // Mount terminal
-    const container = document.getElementById("terminal-container");
-    if (container) {
-      await terminal.mount(container);
-    }
+    // Focus window after initialization
+    await this.appWindow.setFocus();
   }
 }
 

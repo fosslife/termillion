@@ -190,9 +190,7 @@ const defaultConfig: Config = {
     scrollback: 10000,
     padding: { x: 10, y: 10 },
   },
-  shortcuts: {
-    // ... your default shortcuts ...
-  },
+
   splitPane: {
     divider: {
       size: 5,

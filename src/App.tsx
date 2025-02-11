@@ -15,6 +15,7 @@ import { ConfigProvider, useConfig } from "./contexts/ConfigContext";
 import { isFontAvailable, loadGoogleFont } from "./font-checker";
 import { Terminal } from "./components/Terminal/Terminal";
 import { Tabs, TabsList, Tab } from "./components/Terminal/Tabs";
+import { listen } from "@tauri-apps/api/event";
 
 type TerminalTab = {
   id: string;
@@ -48,7 +49,7 @@ const AppContent: React.FC = () => {
     setTabs((prev) => [...prev, newTab]);
     setActiveTab(id);
 
-    const unlisten = await getCurrentWindow().listen(`pty://exit/${id}`, () => {
+    const unlisten = listen(`pty://exit/${id}`, () => {
       closeTab(id);
     });
 
