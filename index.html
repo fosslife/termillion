@@ -12,25 +12,33 @@
   </head>
   <body>
     <div class="app">
-      <div data-tauri-drag-region class="titlebar">
-        <div class="titlebar-button" data-window-control="minimize">
-          <img
-            src="https://api.iconify.design/mdi:window-minimize.svg"
-            alt="minimize"
-          />
+      <div class="titlebar">
+        <div class="titlebar-tabs">
+          <div class="tabs-container">
+            <div class="tabs-list"></div>
+            <div class="new-tab-container">
+              <button class="new-tab-button">+</button>
+              <button class="dropdown-button">▾</button>
+            </div>
+          </div>
         </div>
-        <div class="titlebar-button" data-window-control="maximize">
-          <img
-            src="https://api.iconify.design/mdi:window-maximize.svg"
-            alt="maximize"
-          />
+        <div class="window-controls">
+          <div class="titlebar-button" data-window-control="minimize">
+            <img
+              src="https://api.iconify.design/mdi:window-minimize.svg"
+              alt="minimize"
+            />
+          </div>
+          <div class="titlebar-button" data-window-control="maximize">
+            <img
+              src="https://api.iconify.design/mdi:window-maximize.svg"
+              alt="maximize"
+            />
+          </div>
+          <div class="titlebar-button" data-window-control="close">
+            <img src="https://api.iconify.design/mdi:close.svg" alt="close" />
+          </div>
         </div>
-        <div class="titlebar-button" data-window-control="close">
-          <img src="https://api.iconify.design/mdi:close.svg" alt="close" />
-        </div>
-      </div>
-      <div class="tab-container">
-        <div class="tabs-list"></div>
       </div>
       <div id="terminal-container"></div>
     </div>

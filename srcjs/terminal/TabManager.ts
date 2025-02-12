@@ -29,14 +29,51 @@ export class TabManager {
   }
 
   private initializeUI(): void {
+    console.log("[initializeUI] Enter");
+    console.log("Initializing UI...");
     this.tabsList = document.querySelector(".tabs-list");
     this.terminalContainer = document.getElementById("terminal-container");
     if (!this.tabsList) {
+      console.error("Could not find tabs list element");
       throw new Error("Could not find tabs list element");
     }
     if (!this.terminalContainer) {
+      console.error("Could not find terminal container");
       throw new Error("Could not find terminal container");
     }
+
+    this.setupTabScrolling();
+
+    // Add new tab button event listeners
+    const newTabButton = document.querySelector(".new-tab-button");
+    if (newTabButton) {
+      console.log("Found new tab button, adding event listener");
+      newTabButton.addEventListener("click", (e) => {
+        console.log("New tab button clicked");
+        e.stopPropagation();
+        this.createTab();
+      });
+    }
+
+    const dropdownButton = document.querySelector(".dropdown-button");
+    if (dropdownButton) {
+      console.log(
+        "[initializeUI] Found dropdown button, adding event listener"
+      );
+      dropdownButton.addEventListener("click", (e) => {
+        console.log("[initializeUI] Dropdown button clicked");
+        e.stopPropagation();
+        this.toggleProfileMenu();
+      });
+
+      dropdownButton.addEventListener("mousedown", (e) => {
+        console.log("Dropdown button mousedown");
+        e.stopPropagation();
+      });
+    } else {
+      console.error("[initializeUI] Could not find dropdown button");
+    }
+    console.log("[initializeUI] Exit");
   }
 
   private createTerminalContainer(id: string): HTMLElement {
@@ -59,8 +96,15 @@ export class TabManager {
       tabElement.className = `tab ${tab.active ? "active" : ""}`;
       tabElement.dataset.tabId = tab.id;
 
+      // Add click handler for tab switching
+      tabElement.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.switchTab(tab.id);
+      });
+
       // Add middle click handler
       tabElement.addEventListener("auxclick", (e) => {
+        e.stopPropagation();
         if (e.button === 1) {
           // Middle mouse button
           this.closeTab(tab.id);
@@ -70,7 +114,8 @@ export class TabManager {
       // Title part
       const titleElement = document.createElement("span");
       titleElement.textContent = tab.title;
-      titleElement.addEventListener("click", () => {
+      titleElement.addEventListener("click", (e) => {
+        e.stopPropagation();
         this.switchTab(tab.id);
       });
       tabElement.appendChild(titleElement);
@@ -89,29 +134,6 @@ export class TabManager {
 
       this.tabsList?.appendChild(tabElement);
     });
-
-    const newTabContainer = document.createElement("div");
-    newTabContainer.className = "new-tab-container";
-
-    const newTabButton = document.createElement("button");
-    newTabButton.className = "tab new-tab";
-    newTabButton.textContent = "+";
-    newTabButton.addEventListener("click", () => {
-      this.createTab();
-    });
-
-    // Add dropdown button
-    const dropdownButton = document.createElement("button");
-    dropdownButton.className = "tab dropdown-button";
-    dropdownButton.innerHTML = "▾";
-    dropdownButton.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.toggleProfileMenu();
-    });
-
-    newTabContainer.appendChild(newTabButton);
-    newTabContainer.appendChild(dropdownButton);
-    this.tabsList?.appendChild(newTabContainer);
   }
 
   private focusTerminal(terminalId: string): void {
@@ -282,83 +304,123 @@ export class TabManager {
   }
 
   private toggleProfileMenu(): void {
-    let menu = document.querySelector(".profile-menu");
-    if (!menu) {
-      this.showProfileMenu();
-      menu = document.querySelector(".profile-menu");
-    }
+    const menu = document.querySelector(".profile-menu");
 
     if (menu) {
-      if (this.isProfileMenuOpen) {
-        this.closeProfileMenu();
-      } else {
-        // Ensure menu is visible and positioned correctly
-        (menu as HTMLElement).style.display = "block";
-        (menu as HTMLElement).style.right = "0";
-        (menu as HTMLElement).style.top = "calc(100% + 4px)";
+      menu.classList.toggle("visible");
+    } else {
+      this.createProfileMenu();
+    }
+  }
 
-        requestAnimationFrame(() => {
-          (menu as HTMLElement).classList.add("open");
-        });
-        this.isProfileMenuOpen = true;
+  private createProfileMenu(): void {
+    if (!this.config.profiles) return;
 
-        // Add click outside handler
-        const clickOutsideHandler = (e: MouseEvent) => {
-          const target = e.target as HTMLElement;
-          if (
-            !menu?.contains(target) &&
-            !target.classList.contains("dropdown-button")
-          ) {
-            this.closeProfileMenu();
-            document.removeEventListener("click", clickOutsideHandler);
-          }
-        };
+    const menu = document.createElement("div");
+    menu.className = "profile-menu";
+    menu.addEventListener("click", (e) => e.stopPropagation());
 
-        // Add slight delay to prevent immediate close
-        setTimeout(() => {
-          document.addEventListener("click", clickOutsideHandler);
-        }, 10);
-      }
+    this.config.profiles.list.forEach((profile) => {
+      const item = document.createElement("div");
+      item.className = "profile-item";
+      item.textContent = profile.name;
+
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.createTab(profile.name);
+        this.toggleProfileMenu();
+      });
+
+      menu.appendChild(item);
+    });
+
+    const newTabContainer = document.querySelector(".new-tab-container");
+    if (newTabContainer) {
+      newTabContainer.appendChild(menu);
+      menu.classList.add("visible");
+
+      // Add global click handler
+      const clickHandler = (e: MouseEvent) => {
+        e.stopPropagation();
+        if (!menu.contains(e.target as Node)) {
+          this.closeProfileMenu();
+          document.removeEventListener("click", clickHandler);
+        }
+      };
+
+      // Use setTimeout to avoid immediate trigger
+      setTimeout(() => {
+        document.addEventListener("click", clickHandler);
+      }, 0);
     }
   }
 
   private closeProfileMenu(): void {
     const menu = document.querySelector(".profile-menu");
     if (menu) {
-      menu.classList.remove("open");
-      // Add delay before hiding to allow animation
+      menu.classList.remove("visible");
       setTimeout(() => {
-        (menu as HTMLElement).style.display = "none";
-      }, 200);
-      this.isProfileMenuOpen = false;
+        menu.remove();
+      }, 100);
     }
   }
 
-  private showProfileMenu(): void {
-    if (!this.config.profiles) return;
+  private setupTabScrolling(): void {
+    const tabsList = this.tabsList;
+    if (!tabsList) return;
 
-    // Only create menu if it doesn't exist
-    const existingMenu = document.querySelector(".profile-menu");
-    if (existingMenu) return;
+    // Create scroll container
+    const scrollContainer = document.createElement("div");
+    scrollContainer.className = "tabs-scroll";
 
-    const menu = document.createElement("div");
-    menu.className = "profile-menu";
-
-    this.config.profiles.list.forEach((profile) => {
-      const item = document.createElement("div");
-      item.className = "profile-item";
-      item.textContent = profile.name;
-      item.addEventListener("click", () => {
-        this.createTab(profile.name);
-        this.closeProfileMenu();
-      });
-      menu.appendChild(item);
+    // Left scroll button
+    const leftButton = document.createElement("button");
+    leftButton.className = "tabs-scroll-button";
+    leftButton.innerHTML = "◀";
+    leftButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      tabsList.scrollBy({ left: -100, behavior: "smooth" });
     });
 
-    // Append menu to new tab container
-    const newTabContainer = this.tabsList?.querySelector(".new-tab-container");
-    if (newTabContainer) {
-      newTabContainer.appendChild(menu);
-    }
+    // Right scroll button
+    const rightButton = document.createElement("button");
+    rightButton.className = "tabs-scroll-button";
+    rightButton.innerHTML = "▶";
+    rightButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      tabsList.scrollBy({ left: 100, behavior: "smooth" });
+    });
+
+    // Add buttons to container
+    scrollContainer.appendChild(leftButton);
+    scrollContainer.appendChild(rightButton);
+
+    // Insert before window controls
+    const windowControls = document.querySelector(".window-controls");
+    windowControls?.parentNode?.insertBefore(scrollContainer, windowControls);
+
+    // Update button visibility
+    const updateScrollButtons = () => {
+      const shouldShow = this.tabs.length >= 3;
+      scrollContainer.classList.toggle("visible", shouldShow);
+
+      leftButton.style.display = tabsList.scrollLeft > 0 ? "block" : "none";
+      rightButton.style.display =
+        tabsList.scrollLeft < tabsList.scrollWidth - tabsList.clientWidth
+          ? "block"
+          : "none";
+    };
+
+    // Initial update
+    updateScrollButtons();
+
+    // Update on scroll, resize, and tab changes
+    tabsList.addEventListener("scroll", updateScrollButtons);
+    window.addEventListener("resize", updateScrollButtons);
+    const observer = new MutationObserver(updateScrollButtons);
+    observer.observe(tabsList, { childList: true, subtree: true });
+
+    // Also update when tabs are added/removed
+    EventBus.getInstance().on("tabsUpdated", updateScrollButtons);
   }
 }

@@ -205,8 +205,12 @@ export class TerminalInstance {
         this.focused = true;
         EventBus.getInstance().emit("terminalFocus", this);
       });
-      this.container.addEventListener("focusout", () => {
-        this.focused = false;
+
+      this.container.addEventListener("focusout", (e) => {
+        // Only lose focus if the new focus is outside the terminal
+        if (!this.container?.contains(e.relatedTarget as Node)) {
+          this.focused = false;
+        }
       });
     }
   }
