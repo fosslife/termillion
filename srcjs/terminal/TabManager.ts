@@ -282,7 +282,6 @@ export class TabManager {
   }
 
   private toggleProfileMenu(): void {
-    console.log("toggleProfileMenu", this.isProfileMenuOpen);
     let menu = document.querySelector(".profile-menu");
     if (!menu) {
       this.showProfileMenu();
@@ -293,38 +292,34 @@ export class TabManager {
       if (this.isProfileMenuOpen) {
         this.closeProfileMenu();
       } else {
-        this.openProfileMenu(menu as HTMLElement);
+        // Ensure menu is visible and positioned correctly
+        (menu as HTMLElement).style.display = "block";
+        (menu as HTMLElement).style.right = "0";
+        (menu as HTMLElement).style.top = "calc(100% + 4px)";
+
+        requestAnimationFrame(() => {
+          (menu as HTMLElement).classList.add("open");
+        });
+        this.isProfileMenuOpen = true;
+
+        // Add click outside handler
+        const clickOutsideHandler = (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (
+            !menu?.contains(target) &&
+            !target.classList.contains("dropdown-button")
+          ) {
+            this.closeProfileMenu();
+            document.removeEventListener("click", clickOutsideHandler);
+          }
+        };
+
+        // Add slight delay to prevent immediate close
+        setTimeout(() => {
+          document.addEventListener("click", clickOutsideHandler);
+        }, 10);
       }
     }
-  }
-
-  private openProfileMenu(menu: HTMLElement): void {
-    menu.style.display = "block";
-    requestAnimationFrame(() => {
-      menu.classList.add("open");
-    });
-    this.isProfileMenuOpen = true;
-
-    // Add click outside handler
-    const clickOutsideHandler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // Check if click is outside menu and not on dropdown button
-      if (
-        !menu.contains(target) &&
-        !target.classList.contains("dropdown-button") &&
-        !target.closest(".profile-menu")
-      ) {
-        console.log("outside clicked, closing profile menu");
-        this.closeProfileMenu();
-        this.isProfileMenuOpen = false;
-        document.removeEventListener("click", clickOutsideHandler);
-      }
-    };
-
-    // Add slight delay to prevent immediate close
-    setTimeout(() => {
-      document.addEventListener("click", clickOutsideHandler);
-    }, 10);
   }
 
   private closeProfileMenu(): void {

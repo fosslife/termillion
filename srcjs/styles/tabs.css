@@ -80,30 +80,49 @@
 .new-tab-container {
   display: flex;
   align-items: center;
-  gap: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 0 2px;
   position: relative;
 }
 
-.dropdown-button {
+.new-tab-button {
   padding: 0 6px;
   font-size: 16px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--terminal-fg, #a9b1d6);
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-.dropdown-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+.dropdown-button {
+  padding: 0px 5px;
+  font-size: 16px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--terminal-fg, #a9b1d6);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.new-tab-container:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .profile-menu {
   position: absolute;
   right: 0;
-  top: 100%;
+  top: calc(100% + 4px);
   background: var(--terminal-bg, #1a1b26);
   border: 1px solid var(--terminal-border, #24283b);
   border-radius: 4px;
