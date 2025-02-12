@@ -4,14 +4,10 @@ body {
 
 #terminal-container {
   width: 100%;
+  height: 100%;
   background: var(--terminal-bg, #1a1b26);
   overflow: hidden;
   margin-bottom: 10px;
-}
-
-.terminal-container {
-  width: 100%;
-  height: 100%;
   padding: var(--terminal-padding-y, 8px) var(--terminal-padding-x, 12px);
   box-sizing: border-box;
 }

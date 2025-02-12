@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Config } from "../config";
 import { TerminalManager } from "./TerminalManager";
 import { EventBus } from "../utils/EventBus";
+import { ProfileManager } from "./ProfileManager";
 
 export interface Tab {
   id: string;
@@ -17,6 +18,7 @@ export class TabManager {
   private terminalContainer: HTMLElement | null = null;
   private terminalContainers: Map<string, HTMLElement> = new Map();
   private isProfileMenuOpen = false;
+  private profileManager: ProfileManager;
 
   constructor(private readonly config: Config) {
     this.terminalManager = new TerminalManager(config);
@@ -25,6 +27,12 @@ export class TabManager {
     // Listen for terminal focus events
     EventBus.getInstance().on("terminalFocus", () => {
       this.closeProfileMenu();
+    });
+
+    this.profileManager = new ProfileManager(config, (profiles) => {
+      this.config.profiles = profiles;
+      this.saveConfig();
+      EventBus.getInstance().emit(EventBus.PROFILE_CHANGED);
     });
   }
 
@@ -132,8 +140,77 @@ export class TabManager {
         tabElement.appendChild(closeButton);
       }
 
+      // Add context menu
+      this.setupTabContextMenu(tabElement, tab.id);
+
       this.tabsList?.appendChild(tabElement);
     });
+  }
+
+  private setupTabContextMenu(tabElement: HTMLElement, tabId: string): void {
+    tabElement.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.showTabContextMenu(e, tabId);
+    });
+  }
+
+  private showTabContextMenu(event: MouseEvent, tabId: string): void {
+    // Remove existing context menu
+    const existingMenu = document.querySelector(".tab-context-menu");
+    existingMenu?.remove();
+
+    if (!this.config.profiles || this.config.profiles.list.length <= 1) return;
+
+    const menu = document.createElement("div");
+    menu.className = "tab-context-menu";
+    menu.style.position = "fixed";
+    menu.style.left = `${event.clientX}px`;
+    menu.style.top = `${event.clientY}px`;
+
+    // Add profile switching options
+    const currentTab = this.tabs.find((t) => t.id === tabId);
+    if (!currentTab) return;
+
+    const availableProfiles = this.config.profiles.list.filter(
+      (profile) => profile.name !== currentTab.title
+    );
+
+    if (availableProfiles.length === 0) return;
+
+    availableProfiles.forEach((profile) => {
+      const item = document.createElement("div");
+      item.className = "context-menu-item";
+      item.textContent = `Switch to ${profile.name}`;
+      item.addEventListener("click", () => {
+        this.switchProfile(tabId, profile.name);
+        menu.remove();
+      });
+      menu.appendChild(item);
+    });
+
+    document.body.appendChild(menu);
+
+    // Close menu when clicking outside
+    const clickHandler = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) {
+        menu.remove();
+        document.removeEventListener("click", clickHandler);
+        document.removeEventListener("mousedown", clickHandler);
+      }
+    };
+
+    // Use both click and mousedown to capture all interactions
+    setTimeout(() => {
+      document.addEventListener("click", clickHandler);
+      document.addEventListener("mousedown", clickHandler);
+    }, 0);
+
+    // Also close when switching tabs
+    const tabSwitchHandler = () => {
+      menu.remove();
+      EventBus.getInstance().off("tabSwitched", tabSwitchHandler);
+    };
+    EventBus.getInstance().on("tabSwitched", tabSwitchHandler);
   }
 
   private focusTerminal(terminalId: string): void {
@@ -182,7 +259,29 @@ export class TabManager {
     return shell.split(".")[0];
   }
 
+  private validateProfile(profileName: string): boolean {
+    if (!this.config.profiles) return false;
+
+    const profile = this.config.profiles.list.find(
+      (p) => p.name === profileName
+    );
+    if (!profile) {
+      console.error(`Profile "${profileName}" not found`);
+      return false;
+    }
+
+    if (!profile.command) {
+      console.error(`Profile "${profileName}" has no command specified`);
+      return false;
+    }
+
+    return true;
+  }
+
   async createTab(profileName?: string): Promise<void> {
+    if (profileName && !this.validateProfile(profileName)) {
+      return;
+    }
     const id = crypto.randomUUID();
 
     // Get shell name based on profile or default
@@ -320,6 +419,7 @@ export class TabManager {
     menu.className = "profile-menu";
     menu.addEventListener("click", (e) => e.stopPropagation());
 
+    // Add profile items
     this.config.profiles.list.forEach((profile) => {
       const item = document.createElement("div");
       item.className = "profile-item";
@@ -333,6 +433,17 @@ export class TabManager {
 
       menu.appendChild(item);
     });
+
+    // Add management button
+    const manageItem = document.createElement("div");
+    manageItem.className = "profile-item manage";
+    manageItem.textContent = "Manage Profiles...";
+    manageItem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.showProfileManager();
+      this.toggleProfileMenu();
+    });
+    menu.appendChild(manageItem);
 
     const newTabContainer = document.querySelector(".new-tab-container");
     if (newTabContainer) {
@@ -424,5 +535,44 @@ export class TabManager {
 
     // Also update when tabs are added/removed
     EventBus.getInstance().on("tabsUpdated", updateScrollButtons);
+  }
+
+  async switchProfile(tabId: string, profileName: string): Promise<void> {
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    const profile = this.config.profiles?.list.find(
+      (p) => p.name === profileName
+    );
+    if (!profile) return;
+
+    // Update tab title
+    tab.title = profile.name;
+
+    // Get terminal instance
+    const terminal = this.terminalManager.getTerminal(tab.terminalId);
+    if (!terminal) return;
+
+    // Destroy and recreate terminal with new profile
+    await terminal.destroy();
+    await terminal.mount(
+      this.terminalContainers.get(tab.terminalId)!,
+      profile.command,
+      profile.args
+    );
+
+    this.updateTabsUI();
+  }
+
+  private showProfileManager(): void {
+    this.profileManager.show();
+  }
+
+  private async saveConfig(): Promise<void> {
+    try {
+      await invoke("save_config", { config: this.config });
+    } catch (error) {
+      console.error("Failed to save config:", error);
+    }
   }
 }

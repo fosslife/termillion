@@ -2,6 +2,10 @@ export class EventBus {
   private static instance: EventBus;
   private listeners: Map<string, Function[]> = new Map();
 
+  public static PROFILE_CHANGED = "profileChanged";
+  public static PROFILE_ADDED = "profileAdded";
+  public static PROFILE_REMOVED = "profileRemoved";
+
   private constructor() {}
 
   public static getInstance(): EventBus {

@@ -4,9 +4,9 @@
 
 - [ ] Terminal Profiles
 
-  - Different shell configurations
-  - Customizable appearance per profile
-  - Quick profile switching
+  - [x] Different shell configurations
+  - [ ] Customizable appearance per profile
+  - [ ] Quick profile switching
 
 - [ ] Plugin System
 
