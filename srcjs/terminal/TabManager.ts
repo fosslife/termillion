@@ -195,9 +195,11 @@ export class TabManager {
       const container = this.terminalContainers.get(t.terminalId);
       if (container) {
         if (t.active) {
-          // Move container to main container
-          this.terminalContainer.innerHTML = "";
-          this.terminalContainer.appendChild(container);
+          if (this.terminalContainer && container) {
+            // Move container to main container
+            this.terminalContainer.innerHTML = "";
+            this.terminalContainer.appendChild(container);
+          }
           const terminal = this.terminalManager.getTerminal(t.terminalId);
           if (terminal) {
             requestAnimationFrame(() => {
