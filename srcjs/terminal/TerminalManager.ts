@@ -23,4 +23,12 @@ export class TerminalManager {
       this.terminals.delete(id);
     }
   }
+
+  public isTerminalFocused(terminalId: string): boolean {
+    const terminal = this.terminals.get(terminalId);
+    if (terminal) {
+      return terminal.isFocused();
+    }
+    return false;
+  }
 }

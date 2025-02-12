@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Config } from "../config";
 import { TerminalManager } from "./TerminalManager";
+import { EventBus } from "../utils/EventBus";
 
 export interface Tab {
   id: string;
@@ -20,6 +21,11 @@ export class TabManager {
   constructor(private readonly config: Config) {
     this.terminalManager = new TerminalManager(config);
     this.initializeUI();
+
+    // Listen for terminal focus events
+    EventBus.getInstance().on("terminalFocus", () => {
+      this.closeProfileMenu();
+    });
   }
 
   private initializeUI(): void {
@@ -276,6 +282,7 @@ export class TabManager {
   }
 
   private toggleProfileMenu(): void {
+    console.log("toggleProfileMenu", this.isProfileMenuOpen);
     let menu = document.querySelector(".profile-menu");
     if (!menu) {
       this.showProfileMenu();
@@ -284,18 +291,51 @@ export class TabManager {
 
     if (menu) {
       if (this.isProfileMenuOpen) {
-        menu.classList.remove("open");
-        // Add delay before hiding to allow animation
-        setTimeout(() => {
-          (menu as HTMLElement).style.display = "none";
-        }, 200);
+        this.closeProfileMenu();
       } else {
-        (menu as HTMLElement).style.display = "block";
-        requestAnimationFrame(() => {
-          (menu as HTMLElement).classList.add("open");
-        });
+        this.openProfileMenu(menu as HTMLElement);
       }
-      this.isProfileMenuOpen = !this.isProfileMenuOpen;
+    }
+  }
+
+  private openProfileMenu(menu: HTMLElement): void {
+    menu.style.display = "block";
+    requestAnimationFrame(() => {
+      menu.classList.add("open");
+    });
+    this.isProfileMenuOpen = true;
+
+    // Add click outside handler
+    const clickOutsideHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Check if click is outside menu and not on dropdown button
+      if (
+        !menu.contains(target) &&
+        !target.classList.contains("dropdown-button") &&
+        !target.closest(".profile-menu")
+      ) {
+        console.log("outside clicked, closing profile menu");
+        this.closeProfileMenu();
+        this.isProfileMenuOpen = false;
+        document.removeEventListener("click", clickOutsideHandler);
+      }
+    };
+
+    // Add slight delay to prevent immediate close
+    setTimeout(() => {
+      document.addEventListener("click", clickOutsideHandler);
+    }, 10);
+  }
+
+  private closeProfileMenu(): void {
+    const menu = document.querySelector(".profile-menu");
+    if (menu) {
+      menu.classList.remove("open");
+      // Add delay before hiding to allow animation
+      setTimeout(() => {
+        (menu as HTMLElement).style.display = "none";
+      }, 200);
+      this.isProfileMenuOpen = false;
     }
   }
 
@@ -315,7 +355,7 @@ export class TabManager {
       item.textContent = profile.name;
       item.addEventListener("click", () => {
         this.createTab(profile.name);
-        this.toggleProfileMenu();
+        this.closeProfileMenu();
       });
       menu.appendChild(item);
     });

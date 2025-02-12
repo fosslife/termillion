@@ -10,6 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { homeDir } from "@tauri-apps/api/path";
 import type { Config } from "../config";
+import { EventBus } from "../utils/EventBus";
 
 export class TerminalInstance {
   private xterm: XTerm | null = null;
@@ -20,6 +21,7 @@ export class TerminalInstance {
   private unlistenOutput: (() => void) | null = null;
   private lastScrollPosition = 0;
   private visible = false;
+  private isFocused = false;
 
   constructor(
     private readonly config: Config,
@@ -125,6 +127,8 @@ export class TerminalInstance {
     // Track visibility changes
     this.visible = true;
     this.fit(); // Initial fit
+
+    this.setupFocusTracking();
   }
 
   private handleClick = (e: MouseEvent) => {
@@ -136,7 +140,7 @@ export class TerminalInstance {
 
   focus(): void {
     if (this.xterm) {
-      // Store scroll position before any operations
+      this.isFocused = true;
       this.lastScrollPosition = this.xterm.buffer.active.viewportY;
       this.xterm.focus();
     }
@@ -189,5 +193,21 @@ export class TerminalInstance {
     }
 
     this.container = null;
+  }
+
+  isFocused(): boolean {
+    return this.isFocused;
+  }
+
+  private setupFocusTracking(): void {
+    if (this.container) {
+      this.container.addEventListener("focusin", () => {
+        this.isFocused = true;
+        EventBus.getInstance().emit("terminalFocus", this);
+      });
+      this.container.addEventListener("focusout", () => {
+        this.isFocused = false;
+      });
+    }
   }
 }
