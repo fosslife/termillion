@@ -15,6 +15,7 @@ export class TabManager {
   private tabsList: HTMLElement | null = null;
   private terminalContainer: HTMLElement | null = null;
   private terminalContainers: Map<string, HTMLElement> = new Map();
+  private isProfileMenuOpen = false;
 
   constructor(private readonly config: Config) {
     this.terminalManager = new TerminalManager(config);
@@ -83,6 +84,9 @@ export class TabManager {
       this.tabsList?.appendChild(tabElement);
     });
 
+    const newTabContainer = document.createElement("div");
+    newTabContainer.className = "new-tab-container";
+
     const newTabButton = document.createElement("button");
     newTabButton.className = "tab new-tab";
     newTabButton.textContent = "+";
@@ -90,7 +94,18 @@ export class TabManager {
       this.createTab();
     });
 
-    this.tabsList?.appendChild(newTabButton);
+    // Add dropdown button
+    const dropdownButton = document.createElement("button");
+    dropdownButton.className = "tab dropdown-button";
+    dropdownButton.innerHTML = "▾";
+    dropdownButton.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleProfileMenu();
+    });
+
+    newTabContainer.appendChild(newTabButton);
+    newTabContainer.appendChild(dropdownButton);
+    this.tabsList?.appendChild(newTabContainer);
   }
 
   private focusTerminal(terminalId: string): void {
@@ -102,7 +117,20 @@ export class TabManager {
 
   async createFirstTab(): Promise<void> {
     const id = crypto.randomUUID();
-    const shellName = this.getDefaultShellName();
+    let shellName = this.getDefaultShellName();
+    let command: string | undefined;
+    let args: string[] | undefined;
+
+    if (this.config.profiles) {
+      const defaultProfile = this.config.profiles.list.find(
+        (p) => p.name === this.config.profiles?.default
+      );
+      if (defaultProfile) {
+        shellName = defaultProfile.name;
+        command = defaultProfile.command;
+        args = defaultProfile.args ?? undefined;
+      }
+    }
 
     const tab: Tab = {
       id,
@@ -115,7 +143,7 @@ export class TabManager {
     const terminalContainer = this.createTerminalContainer(id);
     this.terminalContainer?.appendChild(terminalContainer);
     const terminal = this.terminalManager.createTerminal(id);
-    await terminal.mount(terminalContainer);
+    await terminal.mount(terminalContainer, command, args);
     terminalContainer.style.display = "block";
     terminal.focus();
     this.updateTabsUI();
@@ -126,10 +154,30 @@ export class TabManager {
     return shell.split(".")[0];
   }
 
-  async createTab(): Promise<void> {
+  async createTab(profileName?: string): Promise<void> {
     const id = crypto.randomUUID();
-    const shellName = this.getDefaultShellName();
 
+    // Get shell name based on profile or default
+    let shellName: string;
+    let command: string | undefined;
+    let args: string[] | undefined;
+
+    if (profileName && this.config.profiles) {
+      const profile = this.config.profiles.list.find(
+        (p) => p.name === profileName
+      );
+      if (profile) {
+        shellName = profile.name;
+        command = profile.command;
+        args = profile.args ?? undefined;
+      } else {
+        shellName = this.getDefaultShellName();
+      }
+    } else {
+      shellName = this.getDefaultShellName();
+    }
+
+    // Update existing tabs
     this.tabs.forEach((t) => {
       t.active = false;
       const container = this.terminalContainers.get(t.terminalId);
@@ -149,7 +197,9 @@ export class TabManager {
     const terminalContainer = this.createTerminalContainer(id);
     this.terminalContainer?.appendChild(terminalContainer);
     const terminal = this.terminalManager.createTerminal(id);
-    await terminal.mount(terminalContainer);
+
+    // Mount terminal with profile
+    await terminal.mount(terminalContainer, command, args);
     terminalContainer.style.display = "block";
     terminal.focus();
     this.updateTabsUI();
@@ -223,5 +273,57 @@ export class TabManager {
     });
 
     this.updateTabsUI();
+  }
+
+  private toggleProfileMenu(): void {
+    let menu = document.querySelector(".profile-menu");
+    if (!menu) {
+      this.showProfileMenu();
+      menu = document.querySelector(".profile-menu");
+    }
+
+    if (menu) {
+      if (this.isProfileMenuOpen) {
+        menu.classList.remove("open");
+        // Add delay before hiding to allow animation
+        setTimeout(() => {
+          (menu as HTMLElement).style.display = "none";
+        }, 200);
+      } else {
+        (menu as HTMLElement).style.display = "block";
+        requestAnimationFrame(() => {
+          (menu as HTMLElement).classList.add("open");
+        });
+      }
+      this.isProfileMenuOpen = !this.isProfileMenuOpen;
+    }
+  }
+
+  private showProfileMenu(): void {
+    if (!this.config.profiles) return;
+
+    // Only create menu if it doesn't exist
+    const existingMenu = document.querySelector(".profile-menu");
+    if (existingMenu) return;
+
+    const menu = document.createElement("div");
+    menu.className = "profile-menu";
+
+    this.config.profiles.list.forEach((profile) => {
+      const item = document.createElement("div");
+      item.className = "profile-item";
+      item.textContent = profile.name;
+      item.addEventListener("click", () => {
+        this.createTab(profile.name);
+        this.toggleProfileMenu();
+      });
+      menu.appendChild(item);
+    });
+
+    // Append menu to new tab container
+    const newTabContainer = this.tabsList?.querySelector(".new-tab-container");
+    if (newTabContainer) {
+      newTabContainer.appendChild(menu);
+    }
   }
 }

@@ -26,7 +26,11 @@ export class TerminalInstance {
     private readonly onFocus?: () => void
   ) {}
 
-  async mount(container: HTMLElement): Promise<void> {
+  async mount(
+    container: HTMLElement,
+    command?: string,
+    args?: string[]
+  ): Promise<void> {
     if (this.xterm) return;
     this.container = container;
     container.className = "terminal-container";
@@ -78,12 +82,14 @@ export class TerminalInstance {
     await new Promise((resolve) => setTimeout(resolve, 0));
     this.fit();
 
-    // Create PTY
+    // Create PTY with optional command and args
     const cwd = await homeDir();
     this.ptyId = await invoke<string>("create_pty", {
       cwd,
       rows: this.xterm.rows,
       cols: this.xterm.cols,
+      command,
+      args,
     });
 
     // Set up event listeners
