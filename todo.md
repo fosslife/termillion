@@ -89,3 +89,65 @@
   - Plugin API reference
   - Contribution guidelines
   - Architecture overview
+
+## Terminal Profiles Implementation Plan
+
+### Core Functionality
+
+- [ ] Profile Management
+
+  - Add/Edit/Delete profiles
+  - Set default profile
+  - Profile properties:
+    - Name
+    - Command
+    - Arguments
+    - Environment variables
+    - Working directory
+    - Custom theme
+
+- [ ] Profile Switching
+
+  - Switch profiles for new tabs
+  - Change profile for existing tabs
+  - Keyboard shortcuts for quick profile switching
+
+- [ ] Profile Persistence
+  - Save profiles to config
+  - Load profiles on startup
+  - Profile validation
+
+### UI Improvements
+
+- [ ] Profile Selector Enhancements
+
+  - Add profile icons/colors
+  - Show active profile indicator
+  - Add quick actions (set as default, duplicate, etc.)
+
+- [ ] Profile Management UI
+
+  - Modal for profile editing
+  - Form validation
+  - Live preview of profile settings
+
+- [ ] Terminal Tab Indicators
+
+  - Show profile name/icon in tab
+  - Color coding for different profiles
+  - Quick profile switch from tab context menu
+
+- [ ] Command Palette Integration
+  - Quick profile switching
+  - Profile management commands
+
+### Implementation Order
+
+1. Basic profile management (add/edit/delete)
+2. Profile selection UI
+3. Profile persistence
+4. Profile switching for new tabs
+5. Profile switching for existing tabs
+6. UI enhancements (icons, colors, indicators)
+7. Command palette integration
+8. Advanced features (environment variables, custom themes)

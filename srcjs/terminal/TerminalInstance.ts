@@ -21,7 +21,7 @@ export class TerminalInstance {
   private unlistenOutput: (() => void) | null = null;
   private lastScrollPosition = 0;
   private visible = false;
-  private isFocused = false;
+  private focused: boolean = false;
 
   constructor(
     private readonly config: Config,
@@ -140,7 +140,7 @@ export class TerminalInstance {
 
   focus(): void {
     if (this.xterm) {
-      this.isFocused = true;
+      this.focused = true;
       this.lastScrollPosition = this.xterm.buffer.active.viewportY;
       this.xterm.focus();
     }
@@ -196,17 +196,17 @@ export class TerminalInstance {
   }
 
   isFocused(): boolean {
-    return this.isFocused;
+    return this.focused;
   }
 
   private setupFocusTracking(): void {
     if (this.container) {
       this.container.addEventListener("focusin", () => {
-        this.isFocused = true;
+        this.focused = true;
         EventBus.getInstance().emit("terminalFocus", this);
       });
       this.container.addEventListener("focusout", () => {
-        this.isFocused = false;
+        this.focused = false;
       });
     }
   }
