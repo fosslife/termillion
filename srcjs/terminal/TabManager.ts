@@ -369,46 +369,48 @@ export class TabManager {
     const tabsList = this.tabsList;
     if (!tabsList) return;
 
-    // Create scroll container
-    const scrollContainer = document.createElement("div");
-    scrollContainer.className = "tabs-scroll";
-
-    // Left scroll button
+    // Create left scroll button
     const leftButton = document.createElement("button");
-    leftButton.className = "tabs-scroll-button";
+    leftButton.className = "tabs-scroll-button left";
     leftButton.innerHTML = "◀";
     leftButton.addEventListener("click", (e) => {
       e.stopPropagation();
       tabsList.scrollBy({ left: -100, behavior: "smooth" });
     });
 
-    // Right scroll button
+    // Create right scroll button
     const rightButton = document.createElement("button");
-    rightButton.className = "tabs-scroll-button";
+    rightButton.className = "tabs-scroll-button right";
     rightButton.innerHTML = "▶";
     rightButton.addEventListener("click", (e) => {
       e.stopPropagation();
       tabsList.scrollBy({ left: 100, behavior: "smooth" });
     });
 
-    // Add buttons to container
-    scrollContainer.appendChild(leftButton);
-    scrollContainer.appendChild(rightButton);
+    // Insert left button before tabs list
+    tabsList.parentNode?.insertBefore(leftButton, tabsList);
 
-    // Insert before window controls
-    const windowControls = document.querySelector(".window-controls");
-    windowControls?.parentNode?.insertBefore(scrollContainer, windowControls);
+    // Insert right button after new tab container
+    const newTabContainer = document.querySelector(".new-tab-container");
+    if (newTabContainer) {
+      newTabContainer.parentNode?.insertBefore(
+        rightButton,
+        newTabContainer.nextSibling
+      );
+    }
 
     // Update button visibility
     const updateScrollButtons = () => {
       const shouldShow = this.tabs.length >= 3;
-      scrollContainer.classList.toggle("visible", shouldShow);
+      leftButton.style.display = shouldShow ? "block" : "none";
+      rightButton.style.display = shouldShow ? "block" : "none";
 
-      leftButton.style.display = tabsList.scrollLeft > 0 ? "block" : "none";
-      rightButton.style.display =
+      leftButton.style.visibility =
+        tabsList.scrollLeft > 0 ? "visible" : "hidden";
+      rightButton.style.visibility =
         tabsList.scrollLeft < tabsList.scrollWidth - tabsList.clientWidth
-          ? "block"
-          : "none";
+          ? "visible"
+          : "hidden";
     };
 
     // Initial update
