@@ -52,6 +52,14 @@ export class TabManager {
       tabElement.className = `tab ${tab.active ? "active" : ""}`;
       tabElement.dataset.tabId = tab.id;
 
+      // Add middle click handler
+      tabElement.addEventListener("auxclick", (e) => {
+        if (e.button === 1) {
+          // Middle mouse button
+          this.closeTab(tab.id);
+        }
+      });
+
       // Title part
       const titleElement = document.createElement("span");
       titleElement.textContent = tab.title;
