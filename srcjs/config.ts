@@ -12,6 +12,22 @@ export interface ThemeConfig {
   selection: string;
   border?: string;
   header?: string;
+  black?: string;
+  red?: string;
+  green?: string;
+  yellow?: string;
+  blue?: string;
+  magenta?: string;
+  cyan?: string;
+  white?: string;
+  bright_black?: string;
+  bright_red?: string;
+  bright_green?: string;
+  bright_yellow?: string;
+  bright_blue?: string;
+  bright_magenta?: string;
+  bright_cyan?: string;
+  bright_white?: string;
 }
 
 export interface ShellConfig {
@@ -34,15 +50,83 @@ export interface Profile {
   name: string;
   command: string;
   args?: string[];
-  env?: Record<string, string>;
-  working_directory?: string;
-  theme?: ThemeConfig;
   font?: FontConfig;
+  theme?: ThemeConfig;
 }
 
-export interface ProfilesConfig {
-  list: Profile[];
+export interface Profiles {
   default: string;
+  list: Profile[];
+}
+
+export interface Shortcut {
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  meta: boolean;
+}
+
+export interface KeyboardShortcuts {
+  new_tab: Shortcut;
+  close_tab: Shortcut;
+  split_vertical: Shortcut;
+  split_horizontal: Shortcut;
+  focus_next_pane: Shortcut;
+  focus_previous_pane: Shortcut;
+  close_pane: Shortcut;
+  reload_config: Shortcut;
+  show_profiles: Shortcut;
+}
+
+export interface WindowControlsConfig {
+  position: string;
+  style: string;
+  visible: boolean;
+  custom?: {
+    close: string;
+    minimize: string;
+    maximize: string;
+    restore: string;
+  };
+}
+
+export interface TabStyle {
+  background_color: string;
+  border_color: string;
+  text_color: string;
+}
+
+export interface TabBarStyle {
+  height: number;
+  background_color: string;
+  active_tab: TabStyle;
+  inactive_tab: TabStyle;
+}
+
+export interface TabBarConfig {
+  visible: boolean;
+  position: string;
+  style: TabBarStyle;
+}
+
+export interface DividerConfig {
+  size: number;
+  color: string;
+  hover_color: string;
+  drag_color: string;
+  hit_size: number;
+}
+
+export interface AnimationConfig {
+  enabled: boolean;
+  duration: number;
+}
+
+export interface SplitPaneConfig {
+  divider: DividerConfig;
+  min_size: number;
+  animation: AnimationConfig;
 }
 
 export interface Config {
@@ -51,50 +135,9 @@ export interface Config {
   theme: ThemeConfig;
   shell: ShellConfig;
   terminal: TerminalSettings;
-  profiles?: ProfilesConfig;
-  ui?: {
-    show_tab_bar: boolean;
-    tab_bar_position: "top" | "bottom";
-    show_scrollbar: boolean;
-    window_transparency: number;
-    animations_enabled: boolean;
-    confirm_before_closing: boolean;
-  };
-  behavior?: {
-    copy_on_select: boolean;
-    scroll_on_output: boolean;
-    scroll_on_input: boolean;
-    bell_style: "none" | "visual" | "audible" | "both";
-    cursor_blink: boolean;
-    cursor_style: "block" | "underline" | "bar";
-    scrollback_lines: number;
-  };
-  keybindings?: {
-    new_tab: string;
-    close_tab: string;
-    next_tab: string;
-    previous_tab: string;
-    split_vertical: string;
-    split_horizontal: string;
-    zoom_in: string;
-    zoom_out: string;
-    fullscreen: string;
-  };
-}
-
-export interface UIConfig {
-  theme: ThemeConfig;
-  font: FontConfig;
-  padding: { x: number; y: number };
-  border_radius: number;
-  tab_bar: {
-    height: number;
-    spacing: number;
-    show_close_buttons: boolean;
-  };
-  window: {
-    title_bar_style: "native" | "custom";
-    always_on_top: boolean;
-    start_maximized: boolean;
-  };
+  profiles: Profiles;
+  shortcuts: KeyboardShortcuts;
+  window_controls: WindowControlsConfig;
+  tab_bar: TabBarConfig;
+  split_pane: SplitPaneConfig;
 }

@@ -26,6 +26,7 @@ portable-pty = "0.8.1"
 tauri-plugin-fs = "2"
 toml = "0.8"
 lazy_static = "1.5.0"
+tauri-plugin-os = "2"
 
 [dependencies.uuid]
 version = "1.12.0"

@@ -3,6 +3,7 @@ import type { Config } from "../config";
 import { TerminalManager } from "./TerminalManager";
 import { EventBus } from "../utils/EventBus";
 import { ProfileManager } from "./ProfileManager";
+import { platform } from "@tauri-apps/plugin-os";
 
 export interface Tab {
   id: string;
@@ -21,6 +22,7 @@ export class TabManager {
   private profileManager: ProfileManager;
 
   constructor(private readonly config: Config) {
+    console.log("TabManager config:", config);
     this.terminalManager = new TerminalManager(config);
     this.initializeUI();
 
@@ -222,7 +224,7 @@ export class TabManager {
 
   async createFirstTab(): Promise<void> {
     const id = crypto.randomUUID();
-    let shellName = this.getDefaultShellName();
+    let shellName = await this.getDefaultShellName();
     let command: string | undefined;
     let args: string[] | undefined;
 
@@ -254,9 +256,23 @@ export class TabManager {
     this.updateTabsUI();
   }
 
-  private getDefaultShellName(): string {
-    const shell = this.config.shell.windows; // TODO: Handle other platforms
-    return shell.split(".")[0];
+  private async getDefaultShellName(): Promise<string> {
+    try {
+      const currentPlatform = await platform();
+      switch (currentPlatform) {
+        case "windows":
+          return this.config.shell.windows;
+        case "linux":
+          return this.config.shell.linux;
+        case "macos":
+          return this.config.shell.macos;
+        default:
+          return "/bin/bash";
+      }
+    } catch (error) {
+      console.error("Error detecting platform:", error);
+      return "/bin/bash";
+    }
   }
 
   private validateProfile(profileName: string): boolean {
@@ -298,10 +314,10 @@ export class TabManager {
         command = profile.command;
         args = profile.args ?? undefined;
       } else {
-        shellName = this.getDefaultShellName();
+        shellName = await this.getDefaultShellName();
       }
     } else {
-      shellName = this.getDefaultShellName();
+      shellName = await this.getDefaultShellName();
     }
 
     // Update existing tabs
@@ -402,22 +418,47 @@ export class TabManager {
     this.updateTabsUI();
   }
 
-  private toggleProfileMenu(): void {
+  public async toggleProfileMenu(): Promise<void> {
     const menu = document.querySelector(".profile-menu");
 
     if (menu) {
-      menu.classList.toggle("visible");
+      if (menu.classList.contains("visible")) {
+        this.closeProfileMenu();
+      } else {
+        await this.createProfileMenu();
+      }
     } else {
-      this.createProfileMenu();
+      await this.createProfileMenu();
     }
   }
 
-  private createProfileMenu(): void {
-    if (!this.config.profiles) return;
+  private async createProfileMenu(): Promise<void> {
+    // Handle null profiles by creating a default profile list
+    if (!this.config.profiles || this.config.profiles === null) {
+      const defaultShell = await this.getDefaultShellName();
+      this.config.profiles = {
+        default: "Default",
+        list: [
+          {
+            name: "Default",
+            command: defaultShell,
+            args: [],
+          },
+        ],
+      };
+    }
+
+    // Check if profiles list is empty
+    if (!this.config.profiles.list?.length) {
+      return;
+    }
 
     const menu = document.createElement("div");
     menu.className = "profile-menu";
-    menu.addEventListener("click", (e) => e.stopPropagation());
+
+    menu.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
 
     // Add profile items
     this.config.profiles.list.forEach((profile) => {
@@ -438,6 +479,7 @@ export class TabManager {
     const manageItem = document.createElement("div");
     manageItem.className = "profile-item manage";
     manageItem.textContent = "Manage Profiles...";
+
     manageItem.addEventListener("click", (e) => {
       e.stopPropagation();
       this.showProfileManager();
@@ -452,7 +494,6 @@ export class TabManager {
 
       // Add global click handler
       const clickHandler = (e: MouseEvent) => {
-        e.stopPropagation();
         if (!menu.contains(e.target as Node)) {
           this.closeProfileMenu();
           document.removeEventListener("click", clickHandler);
