@@ -6,10 +6,12 @@ import "./styles/tabs.css";
 import "@xterm/xterm/css/xterm.css";
 import { TabManager } from "./terminal/TabManager";
 import type { Config } from "./config";
+import { ShortcutManager } from "./utils/ShortcutManager";
 
 class App {
   private tabManager: TabManager | null = null;
   private appWindow = getCurrentWindow();
+  private shortcutManager: ShortcutManager;
 
   constructor() {
     this.initializeApp();
@@ -21,15 +23,32 @@ class App {
 
     // Load config
     const config = await invoke<Config>("get_config");
+    window.__config = config; // Make config available globally
+
+    // Initialize shortcut manager
+    this.shortcutManager = ShortcutManager.getInstance(config);
 
     // Initialize tab manager
     this.tabManager = new TabManager(config);
+
+    // Register shortcuts
+    this.registerShortcuts();
 
     // Create first tab
     await this.tabManager.createFirstTab();
 
     // Focus window after initialization
     await this.appWindow.setFocus();
+  }
+
+  private registerShortcuts(): void {
+    // Get the new tab shortcut from config
+    const newTabShortcut = this.shortcutManager.getShortcutConfig("new_tab");
+
+    // Register the new tab shortcut
+    this.shortcutManager.registerShortcut(newTabShortcut, () => {
+      this.tabManager?.createTab();
+    });
   }
 }
 
@@ -61,6 +80,13 @@ class WindowControls {
     } else {
       this.appWindow.maximize();
     }
+  }
+}
+
+// Add config to window object for global access
+declare global {
+  interface Window {
+    __config: Config;
   }
 }
 
