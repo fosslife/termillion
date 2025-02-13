@@ -288,14 +288,29 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
-.profile-manager-modal .modal-content {
+.profile-manager-modal.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  position: relative;
+  transform: translateY(-20px);
+  transition: transform 0.2s ease;
   background: var(--terminal-bg, #1a1b26);
   padding: 20px;
   border-radius: 8px;
   width: 500px;
   max-width: 90%;
+}
+
+.profile-manager-modal.visible .modal-content {
+  transform: translateY(0);
 }
 
 .profile-list {
@@ -361,4 +376,27 @@
 
 .context-menu-item:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--terminal-fg, #a9b1d6);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }

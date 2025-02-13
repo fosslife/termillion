@@ -18,6 +18,13 @@ export class ProfileManager {
     const content = document.createElement("div");
     content.className = "modal-content";
 
+    // Add close button
+    const closeButton = document.createElement("button");
+    closeButton.className = "modal-close";
+    closeButton.innerHTML = "×";
+    closeButton.addEventListener("click", () => this.closeModal());
+    content.appendChild(closeButton);
+
     // Profile list
     const profileList = document.createElement("div");
     profileList.className = "profile-list";
@@ -51,6 +58,20 @@ export class ProfileManager {
 
     // Add to document
     document.body.appendChild(this.modal);
+
+    // Add click-outside handler
+    setTimeout(() => {
+      this.modal?.addEventListener("click", (e) => {
+        if (e.target === this.modal) {
+          this.closeModal();
+        }
+      });
+    }, 0);
+
+    // Add animation class after DOM update
+    setTimeout(() => {
+      this.modal?.classList.add("visible");
+    }, 10);
   }
 
   private createProfileItem(profile: Profile, index: number): HTMLElement {
@@ -136,5 +157,15 @@ export class ProfileManager {
 
     this.modal?.remove();
     this.modal = null;
+  }
+
+  private closeModal(): void {
+    if (this.modal) {
+      this.modal.classList.remove("visible");
+      setTimeout(() => {
+        this.modal?.remove();
+        this.modal = null;
+      }, 200); // Match animation duration
+    }
   }
 }
