@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Config } from "../config";
+import type { Config, Profile } from "../config";
 import { TerminalManager } from "./TerminalManager";
 import { EventBus } from "../utils/EventBus";
 import { ProfileManager } from "./ProfileManager";
@@ -148,84 +148,8 @@ export class TabManager {
         tabElement.appendChild(closeButton);
       }
 
-      // Add context menu
-      this.setupTabContextMenu(tabElement, tab.id);
-
       this.tabsList?.appendChild(tabElement);
     });
-  }
-
-  private setupTabContextMenu(tabElement: HTMLElement, tabId: string): void {
-    tabElement.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      this.showTabContextMenu(e, tabId);
-    });
-  }
-
-  private showTabContextMenu(event: MouseEvent, tabId: string): void {
-    // Remove existing context menu
-    const existingMenu = document.querySelector(".tab-context-menu");
-    existingMenu?.remove();
-
-    if (!this.config.profiles || this.config.profiles.list.length <= 1) return;
-
-    const menu = document.createElement("div");
-    menu.className = "tab-context-menu";
-    menu.style.position = "fixed";
-    menu.style.left = `${event.clientX}px`;
-    menu.style.top = `${event.clientY}px`;
-
-    // Add profile switching options
-    const currentTab = this.tabs.find((t) => t.id === tabId);
-    if (!currentTab) return;
-
-    const availableProfiles = this.config.profiles.list.filter(
-      (profile) => profile.name !== currentTab.title
-    );
-
-    if (availableProfiles.length === 0) return;
-
-    availableProfiles.forEach((profile) => {
-      const item = document.createElement("div");
-      item.className = "context-menu-item";
-      item.textContent = `Switch to ${profile.name}`;
-      item.addEventListener("click", () => {
-        this.switchProfile(tabId, profile.name);
-        menu.remove();
-      });
-      menu.appendChild(item);
-    });
-
-    document.body.appendChild(menu);
-
-    // Close menu when clicking outside
-    const clickHandler = (e: MouseEvent) => {
-      if (!menu.contains(e.target as Node)) {
-        menu.remove();
-        document.removeEventListener("click", clickHandler);
-        document.removeEventListener("mousedown", clickHandler);
-      }
-    };
-
-    // Use both click and mousedown to capture all interactions
-    setTimeout(() => {
-      document.addEventListener("click", clickHandler);
-      document.addEventListener("mousedown", clickHandler);
-    }, 0);
-
-    // Also close when switching tabs
-    const tabSwitchHandler = () => {
-      menu.remove();
-      EventBus.getInstance().off("tabSwitched", tabSwitchHandler);
-    };
-    EventBus.getInstance().on("tabSwitched", tabSwitchHandler);
-  }
-
-  private focusTerminal(terminalId: string): void {
-    const terminal = this.terminalManager.getTerminal(terminalId);
-    if (terminal) {
-      terminal.focus();
-    }
   }
 
   async createFirstTab(): Promise<void> {
@@ -638,33 +562,6 @@ export class TabManager {
 
     // Also update when tabs are added/removed
     EventBus.getInstance().on("tabsUpdated", updateScrollButtons);
-  }
-
-  async switchProfile(tabId: string, profileName: string): Promise<void> {
-    const tab = this.tabs.find((t) => t.id === tabId);
-    if (!tab) return;
-
-    const profile = this.config.profiles?.list.find(
-      (p) => p.name === profileName
-    );
-    if (!profile) return;
-
-    // Update tab title
-    tab.title = profile.name;
-
-    // Get terminal instance
-    const terminal = this.terminalManager.getTerminal(tab.terminalId);
-    if (!terminal) return;
-
-    // Destroy and recreate terminal with new profile
-    await terminal.destroy();
-    await terminal.mount(
-      this.terminalContainers.get(tab.terminalId)!,
-      profile.command,
-      profile.args
-    );
-
-    this.updateTabsUI();
   }
 
   private showProfileManager(): void {

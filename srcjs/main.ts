@@ -49,13 +49,6 @@ class App {
     this.shortcutManager.registerShortcut(newTabShortcut, () => {
       this.tabManager?.createTab();
     });
-
-    // Profile dropdown shortcut
-    const profileShortcut =
-      this.shortcutManager.getShortcutConfig("show_profiles");
-    this.shortcutManager.registerShortcut(profileShortcut, () => {
-      this.tabManager?.toggleProfileMenu();
-    });
   }
 }
 
