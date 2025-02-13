@@ -20,6 +20,7 @@ export class TabManager {
   private terminalContainers: Map<string, HTMLElement> = new Map();
   private isProfileMenuOpen = false;
   private profileManager: ProfileManager;
+  private currentModalCleanup: (() => void) | null = null;
 
   constructor(private readonly config: Config) {
     console.log("TabManager config:", config);
@@ -29,6 +30,11 @@ export class TabManager {
     // Listen for terminal focus events
     EventBus.getInstance().on("terminalFocus", () => {
       this.closeProfileMenu();
+    });
+
+    // Listen for number key events
+    EventBus.getInstance().on("numberKeyPressed", (index: number) => {
+      this.handleNumberKey(index);
     });
 
     this.profileManager = new ProfileManager(config, (profiles) => {
@@ -426,9 +432,11 @@ export class TabManager {
         this.closeProfileMenu();
       } else {
         await this.createProfileMenu();
+        this.isProfileMenuOpen = true;
       }
     } else {
       await this.createProfileMenu();
+      this.isProfileMenuOpen = true;
     }
   }
 
@@ -453,23 +461,32 @@ export class TabManager {
       return;
     }
 
+    // Create modal container
+    const modal = document.createElement("div");
+    modal.className = "profile-modal";
+    modal.tabIndex = -1;
+
+    // Create menu container
     const menu = document.createElement("div");
     menu.className = "profile-menu";
 
-    menu.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
-
-    // Add profile items
-    this.config.profiles.list.forEach((profile) => {
+    // Add profile items with numbers
+    this.config.profiles.list.forEach((profile, index) => {
       const item = document.createElement("div");
       item.className = "profile-item";
-      item.textContent = profile.name;
+      item.textContent = `${index + 1}. ${profile.name}`;
 
-      item.addEventListener("click", (e) => {
-        e.stopPropagation();
+      item.addEventListener("click", () => {
         this.createTab(profile.name);
-        this.toggleProfileMenu();
+        this.closeProfileMenu();
+      });
+
+      // Add hover effect to profile items
+      item.addEventListener("mouseenter", () => {
+        item.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+      });
+      item.addEventListener("mouseleave", () => {
+        item.style.backgroundColor = "";
       });
 
       menu.appendChild(item);
@@ -480,40 +497,85 @@ export class TabManager {
     manageItem.className = "profile-item manage";
     manageItem.textContent = "Manage Profiles...";
 
-    manageItem.addEventListener("click", (e) => {
-      e.stopPropagation();
+    manageItem.addEventListener("click", () => {
       this.showProfileManager();
-      this.toggleProfileMenu();
+      this.closeProfileMenu();
     });
     menu.appendChild(manageItem);
 
-    const newTabContainer = document.querySelector(".new-tab-container");
-    if (newTabContainer) {
-      newTabContainer.appendChild(menu);
-      menu.classList.add("visible");
+    // Add close button
+    const closeButton = document.createElement("button");
+    closeButton.className = "modal-close";
+    closeButton.textContent = "×";
+    closeButton.addEventListener("click", () => this.closeProfileMenu());
 
-      // Add global click handler
-      const clickHandler = (e: MouseEvent) => {
-        if (!menu.contains(e.target as Node)) {
+    modal.appendChild(closeButton);
+    modal.appendChild(menu);
+    document.body.appendChild(modal);
+
+    // Focus the modal
+    modal.focus();
+
+    // Handle key events
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle number keys
+      if (/^[1-9]$/.test(e.key)) {
+        const index = parseInt(e.key);
+        const profile = this.getProfileByIndex(index);
+        if (profile) {
+          this.createTab(profile.name);
           this.closeProfileMenu();
-          document.removeEventListener("click", clickHandler);
         }
-      };
+        return;
+      }
 
-      // Use setTimeout to avoid immediate trigger
-      setTimeout(() => {
-        document.addEventListener("click", clickHandler);
-      }, 0);
-    }
+      // Close on Escape
+      if (e.key === "Escape") {
+        this.closeProfileMenu();
+      }
+    };
+
+    // Handle outside clicks
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) {
+        this.closeProfileMenu();
+      }
+    };
+
+    // Add event listeners
+    const handleBlur = () => {
+      if (this.isProfileMenuOpen) {
+        this.closeProfileMenu();
+      }
+    };
+
+    modal.addEventListener("keydown", handleKeyDown);
+    modal.addEventListener("blur", handleBlur);
+    document.addEventListener("click", handleOutsideClick);
+
+    // Store cleanup functions
+    this.currentModalCleanup = () => {
+      modal.removeEventListener("keydown", handleKeyDown);
+      modal.removeEventListener("blur", handleBlur);
+      document.removeEventListener("click", handleOutsideClick);
+    };
+
+    this.isProfileMenuOpen = true;
   }
 
   private closeProfileMenu(): void {
-    const menu = document.querySelector(".profile-menu");
-    if (menu) {
-      menu.classList.remove("visible");
-      setTimeout(() => {
-        menu.remove();
-      }, 100);
+    if (!this.isProfileMenuOpen) return;
+
+    const modal = document.querySelector(".profile-modal");
+    if (modal && document.body.contains(modal)) {
+      // Clean up event listeners
+      if (this.currentModalCleanup) {
+        this.currentModalCleanup();
+        this.currentModalCleanup = null;
+      }
+
+      modal.remove();
+      this.isProfileMenuOpen = false;
     }
   }
 
@@ -615,5 +677,26 @@ export class TabManager {
     } catch (error) {
       console.error("Failed to save config:", error);
     }
+  }
+
+  private handleNumberKey(index: number): void {
+    if (!this.isProfileMenuOpen) return;
+
+    const profile = this.getProfileByIndex(index);
+    if (profile) {
+      this.createTab(profile.name);
+      this.closeProfileMenu();
+    }
+  }
+
+  private getProfileByIndex(index: number): Profile | null {
+    if (!this.config.profiles?.list?.length) return null;
+
+    // Convert to zero-based index
+    const profileIndex = index - 1;
+    if (profileIndex >= 0 && profileIndex < this.config.profiles.list.length) {
+      return this.config.profiles.list[profileIndex];
+    }
+    return null;
   }
 }

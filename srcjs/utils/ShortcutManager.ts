@@ -25,6 +25,18 @@ export class ShortcutManager {
   private handleKeyDown(event: KeyboardEvent): void {
     const shortcut = this.getShortcutString(event);
 
+    // Check if profile menu is visible
+    const profileMenu = document.querySelector(".profile-menu.visible");
+    if (profileMenu) {
+      // Handle number keys
+      if (/^[1-9]$/.test(event.key)) {
+        event.preventDefault();
+        const index = parseInt(event.key);
+        EventBus.getInstance().emit("numberKeyPressed", index);
+        return;
+      }
+    }
+
     if (this.shortcuts.has(shortcut)) {
       event.preventDefault();
       const action = this.shortcuts.get(shortcut);
