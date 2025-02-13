@@ -6,17 +6,12 @@ export interface FontConfig {
 }
 
 export interface ThemeConfig {
-  // Basic colors
   background: string;
   foreground: string;
   cursor: string;
   selection: string;
-
-  // UI elements
   border?: string;
   header?: string;
-
-  // Standard ANSI Colors (0-7)
   black?: string;
   red?: string;
   green?: string;
@@ -25,8 +20,6 @@ export interface ThemeConfig {
   magenta?: string;
   cyan?: string;
   white?: string;
-
-  // Bright ANSI Colors (8-15)
   bright_black?: string;
   bright_red?: string;
   bright_green?: string;
@@ -49,7 +42,7 @@ export interface PaddingConfig {
 }
 
 export interface TerminalSettings {
-  scrollback?: number | "infinite";
+  scrollback?: number;
   padding?: PaddingConfig;
 }
 
@@ -67,11 +60,11 @@ export interface Profiles {
 }
 
 export interface Shortcut {
-  key: string; // The main key: 'a', 'b', '1', 'tab', etc.
-  ctrl?: boolean; // Default: false
-  shift?: boolean; // Default: false
-  alt?: boolean; // Default: false
-  meta?: boolean; // Default: false (Windows/Command key)
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  meta: boolean;
 }
 
 export interface KeyboardShortcuts {
@@ -83,52 +76,57 @@ export interface KeyboardShortcuts {
   focus_previous_pane: Shortcut;
   close_pane: Shortcut;
   reload_config: Shortcut;
+  show_profiles: Shortcut;
 }
 
 export interface WindowControlsConfig {
-  position: "left" | "right";
-  style: "native" | "custom";
+  position: string;
+  style: string;
   visible: boolean;
-  // For custom style only
   custom?: {
-    close: string; // Icon paths or Unicode
+    close: string;
     minimize: string;
     maximize: string;
     restore: string;
   };
 }
 
+export interface TabStyle {
+  background_color: string;
+  border_color: string;
+  text_color: string;
+}
+
+export interface TabBarStyle {
+  height: number;
+  background_color: string;
+  active_tab: TabStyle;
+  inactive_tab: TabStyle;
+}
+
 export interface TabBarConfig {
   visible: boolean;
-  position: "top" | "bottom";
-  style: {
-    height: number;
-    backgroundColor: string;
-    activeTab: {
-      backgroundColor: string;
-      borderColor: string;
-      textColor: string;
-    };
-    inactiveTab: {
-      backgroundColor: string;
-      borderColor: string;
-      textColor: string;
-    };
-  };
+  position: string;
+  style: TabBarStyle;
+}
+
+export interface DividerConfig {
+  size: number;
+  color: string;
+  hover_color: string;
+  drag_color: string;
+  hit_size: number;
+}
+
+export interface AnimationConfig {
+  enabled: boolean;
+  duration: number;
 }
 
 export interface SplitPaneConfig {
-  divider: {
-    size: number;
-    color: string;
-    hoverColor: string;
-    dragColor: string;
-  };
-  minSize: number; // Minimum pane size in pixels
-  animation: {
-    enabled: boolean;
-    duration: number;
-  };
+  divider: DividerConfig;
+  min_size: number;
+  animation: AnimationConfig;
 }
 
 export interface Config {
@@ -137,28 +135,9 @@ export interface Config {
   theme: ThemeConfig;
   shell: ShellConfig;
   terminal: TerminalSettings;
-  profiles?: Profiles;
+  profiles: Profiles;
   shortcuts: KeyboardShortcuts;
-  windowControls: WindowControlsConfig;
-  tabBar: TabBarConfig;
-  splitPane: SplitPaneConfig;
-}
-
-// Helper function to type-check config from Rust
-export function isConfig(obj: unknown): obj is Config {
-  const config = obj as Config;
-  return (
-    config !== null &&
-    typeof config === "object" &&
-    typeof config.version === "number" &&
-    typeof config.font === "object" &&
-    typeof config.theme === "object" &&
-    typeof config.shell === "object" &&
-    typeof config.terminal === "object"
-  );
-}
-
-export interface ValidationError {
-  component: string;
-  message: string;
+  window_controls: WindowControlsConfig;
+  tab_bar: TabBarConfig;
+  split_pane: SplitPaneConfig;
 }

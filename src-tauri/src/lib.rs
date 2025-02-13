@@ -31,6 +31,7 @@ pub fn run() {
     let pty_manager = PtyManager::new();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .manage(pty_manager)
         .plugin(tauri_plugin_opener::init())

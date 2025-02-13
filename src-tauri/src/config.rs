@@ -112,6 +112,7 @@ pub struct KeyboardShortcuts {
     pub focus_previous_pane: Shortcut,
     pub close_pane: Shortcut,
     pub reload_config: Shortcut,
+    pub show_profiles: Shortcut,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -165,6 +166,7 @@ pub struct DividerConfig {
     pub color: String,
     pub hover_color: String,
     pub drag_color: String,
+    pub hit_size: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -313,6 +315,12 @@ impl Default for Config {
                     shift: true,
                     ..Default::default()
                 },
+                show_profiles: Shortcut {
+                    key: "p".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
             },
             window_controls: WindowControlsConfig {
                 position: "left".into(),
@@ -344,6 +352,7 @@ impl Default for Config {
                     color: "#32344a".into(),
                     hover_color: "#444b6a".into(),
                     drag_color: "#56586e".into(),
+                    hit_size: 9,
                 },
                 min_size: 200,
                 animation: AnimationConfig {
@@ -463,6 +472,12 @@ impl Config {
                     shift: true,
                     ..Default::default()
                 },
+                show_profiles: Shortcut {
+                    key: "p".into(),
+                    ctrl: true,
+                    shift: true,
+                    ..Default::default()
+                },
             },
             window_controls: WindowControlsConfig {
                 position: "left".into(),
@@ -494,6 +509,7 @@ impl Config {
                     color: "#32344a".into(),
                     hover_color: "#444b6a".into(),
                     drag_color: "#56586e".into(),
+                    hit_size: 9,
                 },
                 min_size: 200,
                 animation: AnimationConfig {
@@ -591,6 +607,12 @@ impl Default for KeyboardShortcuts {
             },
             reload_config: Shortcut {
                 key: "r".into(),
+                ctrl: true,
+                shift: true,
+                ..Default::default()
+            },
+            show_profiles: Shortcut {
+                key: "p".into(),
                 ctrl: true,
                 shift: true,
                 ..Default::default()
