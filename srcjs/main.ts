@@ -45,9 +45,22 @@ class App {
     // Get the new tab shortcut from config
     const newTabShortcut = this.shortcutManager.getShortcutConfig("new_tab");
 
+    const closeTabShortcut =
+      this.shortcutManager.getShortcutConfig("close_tab");
+
     // Register the new tab shortcut
     this.shortcutManager.registerShortcut(newTabShortcut, () => {
       this.tabManager?.createTab();
+    });
+
+    // Register the close tab shortcut
+    this.shortcutManager.registerShortcut(closeTabShortcut, () => {
+      const activeTab = this.tabManager?.getActiveTab();
+      const totalTabs = this.tabManager?.getTotalTabs();
+      console.log("Closing tab", activeTab);
+      if (activeTab && totalTabs && totalTabs > 1) {
+        this.tabManager?.closeTab(activeTab.id);
+      }
     });
   }
 }

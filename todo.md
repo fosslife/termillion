@@ -21,6 +21,10 @@
 
 ## UI/UX Improvements
 
+- [ ] Random profile generator
+
+- [ ] Settings page
+
 - [ ] Command Palette
 
   - Quick access to commands

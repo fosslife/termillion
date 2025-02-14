@@ -44,6 +44,14 @@ export class TabManager {
     });
   }
 
+  public getActiveTab(): Tab | null {
+    return this.tabs.find((t) => t.active) ?? null;
+  }
+
+  public getTotalTabs(): number {
+    return this.tabs.length;
+  }
+
   private initializeUI(): void {
     console.log("[initializeUI] Enter");
     console.log("Initializing UI...");
