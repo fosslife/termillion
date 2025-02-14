@@ -1,3 +1,4 @@
+use documented::DocumentedFields;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -227,7 +228,7 @@ pub struct TabBarConfig {
     pub style: TabBarStyle,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, DocumentedFields)]
 /// Main application configuration
 pub struct Config {
     /// Configuration version (used for migrations)
@@ -296,6 +297,7 @@ impl Default for Config {
                 bright_cyan: Some("#0db9d7".into()),
                 bright_white: Some("#acb0d0".into()),
             },
+
             shell: ShellConfig {
                 windows: "powershell.exe".into(),
                 linux: "/bin/bash".into(),
@@ -502,10 +504,47 @@ impl Config {
                 .map_err(|e| format!("Failed to create config directory: {}", e))?;
         }
 
+        // Convert to string first to get the table format
         let content = toml::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize config: {}", e))?;
 
-        fs::write(&config_path, content)
+        // Parse into toml_edit Document to preserve formatting
+        let mut doc = content
+            .parse::<toml_edit::DocumentMut>()
+            .map_err(|e| format!("Failed to parse TOML document: {}", e))?;
+
+        // Add doc comments for each field
+        for table_key in [
+            "font",
+            "theme",
+            "shell",
+            "terminal",
+            "profiles",
+            "shortcuts",
+            "window_controls",
+            "tab_bar",
+        ] {
+            if let Some(table) = doc.get_mut(table_key) {
+                if let Ok(comment) = Self::get_field_docs(table_key) {
+                    let mut formatted_comment = String::new();
+                    formatted_comment.push_str("\n"); // Add newline before comment
+                    for line in comment.lines() {
+                        let line = if line.is_empty() {
+                            String::from("#\n")
+                        } else {
+                            format!("# {line}\n")
+                        };
+                        formatted_comment.push_str(&line);
+                    }
+                    if let Some(decor) = table.as_table_mut().map(|t| t.decor_mut()) {
+                        decor.set_prefix(formatted_comment);
+                    }
+                }
+            }
+        }
+
+        // Write the document to file
+        fs::write(&config_path, doc.to_string())
             .map_err(|e| format!("Failed to write config file: {}", e))?;
 
         Ok(())

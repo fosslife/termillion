@@ -810,6 +810,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "documented"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2f2016be31b2ee8ca5950d0b985e53d2802bbe646634e41cdf70f668fc66049"
+dependencies = [
+ "documented-derive",
+ "phf 0.11.3",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "documented-derive"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83095afc77f3f21d50be46d608d0a1cfa463cc97e4f3aedab871d6e0baf91870"
+dependencies = [
+ "quote",
+ "syn 2.0.96",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4000,6 +4021,7 @@ dependencies = [
 name = "termillion"
 version = "0.1.0"
 dependencies = [
+ "documented",
  "lazy_static",
  "portable-pty",
  "serde",
@@ -4011,6 +4033,7 @@ dependencies = [
  "tauri-plugin-os",
  "tauri-plugin-window-state",
  "toml 0.8.19",
+ "toml_edit 0.22.22",
  "uuid",
 ]
 

@@ -27,6 +27,8 @@ tauri-plugin-fs = "2"
 toml = "0.8"
 lazy_static = "1.5.0"
 tauri-plugin-os = "2"
+documented = "0.3"
+toml_edit = "0.22"
 
 [dependencies.uuid]
 version = "1.12.0"
