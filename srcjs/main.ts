@@ -11,7 +11,7 @@ import { ShortcutManager } from "./utils/ShortcutManager";
 class App {
   private tabManager: TabManager | null = null;
   private appWindow = getCurrentWindow();
-  private shortcutManager: ShortcutManager;
+  private shortcutManager!: ShortcutManager;
 
   constructor() {
     this.initializeApp();
