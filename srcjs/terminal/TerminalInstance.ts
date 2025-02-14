@@ -86,6 +86,9 @@ export class TerminalInstance {
 
     // Create PTY with optional command and args
     const cwd = await homeDir();
+    console.log(cwd);
+    console.log(command);
+    console.log(args);
     this.ptyId = await invoke<string>("create_pty", {
       cwd,
       rows: this.xterm.rows,

@@ -106,11 +106,6 @@ pub struct Shortcut {
 pub struct KeyboardShortcuts {
     pub new_tab: Shortcut,
     pub close_tab: Shortcut,
-    pub split_vertical: Shortcut,
-    pub split_horizontal: Shortcut,
-    pub focus_next_pane: Shortcut,
-    pub focus_previous_pane: Shortcut,
-    pub close_pane: Shortcut,
     pub reload_config: Shortcut,
     pub show_profiles: Shortcut,
 }
@@ -154,28 +149,6 @@ pub struct TabBarConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SplitPaneConfig {
-    pub divider: DividerConfig,
-    pub min_size: u32,
-    pub animation: AnimationConfig,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DividerConfig {
-    pub size: u32,
-    pub color: String,
-    pub hover_color: String,
-    pub drag_color: String,
-    pub hit_size: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AnimationConfig {
-    pub enabled: bool,
-    pub duration: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub version: u32,
     pub font: FontConfig,
@@ -186,7 +159,6 @@ pub struct Config {
     pub shortcuts: KeyboardShortcuts,
     pub window_controls: WindowControlsConfig,
     pub tab_bar: TabBarConfig,
-    pub split_pane: SplitPaneConfig,
 }
 
 // Config versions for migration
@@ -279,36 +251,6 @@ impl Default for Config {
                     shift: true,
                     ..Default::default()
                 },
-                split_vertical: Shortcut {
-                    key: "v".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                split_horizontal: Shortcut {
-                    key: "h".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                focus_next_pane: Shortcut {
-                    key: "]".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                focus_previous_pane: Shortcut {
-                    key: "[".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                close_pane: Shortcut {
-                    key: "e".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
                 reload_config: Shortcut {
                     key: "r".into(),
                     ctrl: true,
@@ -344,20 +286,6 @@ impl Default for Config {
                         border_color: "#24283b".into(),
                         text_color: "#787c99".into(),
                     },
-                },
-            },
-            split_pane: SplitPaneConfig {
-                divider: DividerConfig {
-                    size: 5,
-                    color: "#32344a".into(),
-                    hover_color: "#444b6a".into(),
-                    drag_color: "#56586e".into(),
-                    hit_size: 9,
-                },
-                min_size: 200,
-                animation: AnimationConfig {
-                    enabled: true,
-                    duration: 200,
                 },
             },
         }
@@ -436,36 +364,7 @@ impl Config {
                     shift: true,
                     ..Default::default()
                 },
-                split_vertical: Shortcut {
-                    key: "v".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                split_horizontal: Shortcut {
-                    key: "h".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                focus_next_pane: Shortcut {
-                    key: "]".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                focus_previous_pane: Shortcut {
-                    key: "[".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
-                close_pane: Shortcut {
-                    key: "e".into(),
-                    ctrl: true,
-                    shift: true,
-                    ..Default::default()
-                },
+
                 reload_config: Shortcut {
                     key: "r".into(),
                     ctrl: true,
@@ -501,20 +400,6 @@ impl Config {
                         border_color: "#24283b".into(),
                         text_color: "#787c99".into(),
                     },
-                },
-            },
-            split_pane: SplitPaneConfig {
-                divider: DividerConfig {
-                    size: 5,
-                    color: "#32344a".into(),
-                    hover_color: "#444b6a".into(),
-                    drag_color: "#56586e".into(),
-                    hit_size: 9,
-                },
-                min_size: 200,
-                animation: AnimationConfig {
-                    enabled: true,
-                    duration: 200,
                 },
             },
         }
@@ -575,36 +460,7 @@ impl Default for KeyboardShortcuts {
                 shift: true,
                 ..Default::default()
             },
-            split_vertical: Shortcut {
-                key: "v".into(),
-                ctrl: true,
-                shift: true,
-                ..Default::default()
-            },
-            split_horizontal: Shortcut {
-                key: "h".into(),
-                ctrl: true,
-                shift: true,
-                ..Default::default()
-            },
-            focus_next_pane: Shortcut {
-                key: "]".into(),
-                ctrl: true,
-                shift: true,
-                ..Default::default()
-            },
-            focus_previous_pane: Shortcut {
-                key: "[".into(),
-                ctrl: true,
-                shift: true,
-                ..Default::default()
-            },
-            close_pane: Shortcut {
-                key: "e".into(),
-                ctrl: true,
-                shift: true,
-                ..Default::default()
-            },
+
             reload_config: Shortcut {
                 key: "r".into(),
                 ctrl: true,

@@ -70,23 +70,7 @@ fn validate_shortcuts(shortcuts: &KeyboardShortcuts) -> Vec<ValidationError> {
     // Validate each shortcut
     errors.extend(validate_shortcut("new_tab", &shortcuts.new_tab));
     errors.extend(validate_shortcut("close_tab", &shortcuts.close_tab));
-    errors.extend(validate_shortcut(
-        "split_vertical",
-        &shortcuts.split_vertical,
-    ));
-    errors.extend(validate_shortcut(
-        "split_horizontal",
-        &shortcuts.split_horizontal,
-    ));
-    errors.extend(validate_shortcut(
-        "focus_next_pane",
-        &shortcuts.focus_next_pane,
-    ));
-    errors.extend(validate_shortcut(
-        "focus_previous_pane",
-        &shortcuts.focus_previous_pane,
-    ));
-    errors.extend(validate_shortcut("close_pane", &shortcuts.close_pane));
+
     errors.extend(validate_shortcut("reload_config", &shortcuts.reload_config));
 
     // Check for conflicts
@@ -119,21 +103,7 @@ fn validate_shortcuts(shortcuts: &KeyboardShortcuts) -> Vec<ValidationError> {
     if let Some(err) = check_conflict("close_tab", &shortcuts.close_tab) {
         errors.push(err);
     }
-    if let Some(err) = check_conflict("split_vertical", &shortcuts.split_vertical) {
-        errors.push(err);
-    }
-    if let Some(err) = check_conflict("split_horizontal", &shortcuts.split_horizontal) {
-        errors.push(err);
-    }
-    if let Some(err) = check_conflict("focus_next_pane", &shortcuts.focus_next_pane) {
-        errors.push(err);
-    }
-    if let Some(err) = check_conflict("focus_previous_pane", &shortcuts.focus_previous_pane) {
-        errors.push(err);
-    }
-    if let Some(err) = check_conflict("close_pane", &shortcuts.close_pane) {
-        errors.push(err);
-    }
+
     if let Some(err) = check_conflict("reload_config", &shortcuts.reload_config) {
         errors.push(err);
     }

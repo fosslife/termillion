@@ -110,25 +110,6 @@ export interface TabBarConfig {
   style: TabBarStyle;
 }
 
-export interface DividerConfig {
-  size: number;
-  color: string;
-  hover_color: string;
-  drag_color: string;
-  hit_size: number;
-}
-
-export interface AnimationConfig {
-  enabled: boolean;
-  duration: number;
-}
-
-export interface SplitPaneConfig {
-  divider: DividerConfig;
-  min_size: number;
-  animation: AnimationConfig;
-}
-
 export interface Config {
   version: number;
   font: FontConfig;
@@ -139,5 +120,4 @@ export interface Config {
   shortcuts: KeyboardShortcuts;
   window_controls: WindowControlsConfig;
   tab_bar: TabBarConfig;
-  split_pane: SplitPaneConfig;
 }
