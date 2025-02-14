@@ -270,32 +270,33 @@ impl Default for Config {
                 line_height: 1.0,
             },
             theme: ThemeConfig {
-                background: "#1a1b26".into(),
-                foreground: "#a9b1d6".into(),
-                cursor: "#c0caf5".into(),
-                selection: "#283457".into(),
-                border: Some("#24283b".into()),
-                header: Some("#16161e".into()),
+                // Base colors
+                background: "#282c34".into(), // Darker background for better contrast
+                foreground: "#abb2bf".into(), // Softer white for main text
+                cursor: "#528bff".into(),     // Bright blue cursor
+                selection: "#3e4451".into(),  // Subtle grey selection
+                border: Some("#21252b".into()), // Darker border for depth
+                header: Some("#1e2227".into()), // Even darker header
 
-                // ANSI colors
-                black: Some("#32344a".into()),
-                red: Some("#f7768e".into()),
-                green: Some("#9ece6a".into()),
-                yellow: Some("#e0af68".into()),
-                blue: Some("#7aa2f7".into()),
-                magenta: Some("#ad8ee6".into()),
-                cyan: Some("#449dab".into()),
-                white: Some("#787c99".into()),
+                // Standard ANSI Colors
+                black: Some("#3f4451".into()),   // Dark grey for black
+                red: Some("#e06c75".into()),     // Soft red for errors
+                green: Some("#98c379".into()),   // Natural green for success
+                yellow: Some("#e5c07b".into()),  // Warm yellow for warnings
+                blue: Some("#61afef".into()),    // Clear blue for info
+                magenta: Some("#c678dd".into()), // Rich purple for special items
+                cyan: Some("#56b6c2".into()),    // Teal for alternate info
+                white: Some("#dcdfe4".into()),   // Light grey for white
 
                 // Bright variants
-                bright_black: Some("#444b6a".into()),
-                bright_red: Some("#ff7a93".into()),
-                bright_green: Some("#b9f27c".into()),
-                bright_yellow: Some("#ff9e64".into()),
-                bright_blue: Some("#7da6ff".into()),
-                bright_magenta: Some("#bb9af7".into()),
-                bright_cyan: Some("#0db9d7".into()),
-                bright_white: Some("#acb0d0".into()),
+                bright_black: Some("#5c6370".into()), // Brighter grey for comments
+                bright_red: Some("#ff7a85".into()),   // Vibrant red
+                bright_green: Some("#b5e890".into()), // Lighter green
+                bright_yellow: Some("#ffd68a".into()), // Bright yellow
+                bright_blue: Some("#80caff".into()),  // Sky blue
+                bright_magenta: Some("#d7a1e7".into()), // Light purple
+                bright_cyan: Some("#7bc6d0".into()),  // Light teal
+                bright_white: Some("#f0f2f4".into()), // Nearly white
             },
 
             shell: ShellConfig {
