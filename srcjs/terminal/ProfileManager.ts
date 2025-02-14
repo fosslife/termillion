@@ -1,9 +1,11 @@
+import { Config, Profile, Profiles } from "../config";
+
 export class ProfileManager {
   private modal: HTMLElement | null = null;
 
   constructor(
     private config: Config,
-    private onSave: (profiles: ProfilesConfig) => void
+    private onSave: (profiles: Profiles) => void
   ) {}
 
   show(): void {
@@ -29,8 +31,8 @@ export class ProfileManager {
     const profileList = document.createElement("div");
     profileList.className = "profile-list";
 
-    this.config.profiles?.list.forEach((profile, index) => {
-      const profileItem = this.createProfileItem(profile, index);
+    this.config.profiles?.list.forEach((profile: Profile) => {
+      const profileItem = this.createProfileItem(profile);
       profileList.appendChild(profileItem);
     });
 
@@ -40,7 +42,7 @@ export class ProfileManager {
     addButton.textContent = "+ Add Profile";
     addButton.addEventListener("click", () => {
       const newProfile = this.createNewProfile();
-      const profileItem = this.createProfileItem(newProfile, -1);
+      const profileItem = this.createProfileItem(newProfile);
       profileList.appendChild(profileItem);
     });
 
@@ -74,7 +76,7 @@ export class ProfileManager {
     }, 10);
   }
 
-  private createProfileItem(profile: Profile, index: number): HTMLElement {
+  private createProfileItem(profile: Profile): HTMLElement {
     const item = document.createElement("div");
     item.className = "profile-item";
 

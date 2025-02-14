@@ -19,8 +19,6 @@ export class TerminalInstance {
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private unlistenOutput: (() => void) | null = null;
-  private lastScrollPosition = 0;
-  private visible = false;
   private focused: boolean = false;
 
   constructor(
@@ -188,7 +186,6 @@ export class TerminalInstance {
     this.focus();
 
     // Track visibility changes
-    this.visible = true;
     this.fit(); // Initial fit
 
     this.setupFocusTracking();
@@ -204,7 +201,6 @@ export class TerminalInstance {
   focus(): void {
     if (this.xterm) {
       this.focused = true;
-      this.lastScrollPosition = this.xterm.buffer.active.viewportY;
       this.xterm.focus();
     }
   }
