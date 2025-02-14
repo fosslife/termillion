@@ -77,21 +77,8 @@ export interface KeyboardShortcuts {
   show_profiles: Shortcut;
 }
 
-export interface WindowControlsConfig {
-  position: string;
-  style: string;
-  visible: boolean;
-  custom?: {
-    close: string;
-    minimize: string;
-    maximize: string;
-    restore: string;
-  };
-}
-
 export interface TabStyle {
   background_color: string;
-  border_color: string;
   text_color: string;
 }
 
@@ -115,11 +102,16 @@ export interface InteractiveElementStyle {
   hover_background: string;
 }
 
+export interface WindowTabsStyle {
+  active: TabStyle;
+  inactive: TabStyle;
+}
+
 export interface WindowConfig {
+  titlebar_height: number;
   titlebar_background: string;
-  border_color: string;
-  controls: WindowControlsConfig;
   interactive: InteractiveElementStyle;
+  tabs: WindowTabsStyle;
 }
 
 export interface Config {
@@ -131,5 +123,4 @@ export interface Config {
   profiles: Profiles;
   shortcuts: KeyboardShortcuts;
   window: WindowConfig;
-  tab_bar: TabBarConfig;
 }

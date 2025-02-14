@@ -162,67 +162,6 @@ pub struct KeyboardShortcuts {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-/// Window controls configuration
-pub struct WindowControlsConfig {
-    /// Position of window controls ("left" | "right")
-    pub position: String, // "left" | "right"
-    /// Style of window controls ("native" | "custom")
-    pub style: String, // "native" | "custom"
-    /// Whether window controls are visible
-    pub visible: bool,
-    /// Custom window control icons
-    pub custom: Option<CustomWindowControls>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// Custom window control icons
-pub struct CustomWindowControls {
-    /// Close button icon
-    pub close: String,
-    /// Minimize button icon
-    pub minimize: String,
-    /// Maximize button icon
-    pub maximize: String,
-    /// Restore button icon
-    pub restore: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// Tab bar style configuration
-pub struct TabBarStyle {
-    /// Height of the tab bar
-    pub height: u32,
-    /// Background color
-    pub background_color: String,
-    /// Style for active tab
-    pub active_tab: TabStyle,
-    /// Style for inactive tabs
-    pub inactive_tab: TabStyle,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// Style configuration for individual tabs
-pub struct TabStyle {
-    /// Background color
-    pub background_color: String,
-    /// Border color
-    pub border_color: String,
-    /// Text color
-    pub text_color: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// Tab bar configuration
-pub struct TabBarConfig {
-    /// Whether tab bar is visible
-    pub visible: bool,
-    /// Position of tab bar ("top" | "bottom")
-    pub position: String, // "top" | "bottom"
-    /// Style configuration
-    pub style: TabBarStyle,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 /// Style configuration for interactive UI elements
 pub struct InteractiveElementStyle {
     /// Background color
@@ -238,14 +177,32 @@ pub struct InteractiveElementStyle {
 #[derive(Debug, Serialize, Deserialize)]
 /// Window appearance configuration
 pub struct WindowConfig {
+    /// Height of the titlebar in pixels
+    pub titlebar_height: u32,
     /// Background color of the titlebar
     pub titlebar_background: String,
-    /// Border color of the window
-    pub border_color: String,
-    /// Controls configuration
-    pub controls: WindowControlsConfig,
     /// Style for interactive elements like buttons
     pub interactive: InteractiveElementStyle,
+    /// Tab styling (left side of titlebar)
+    pub tabs: WindowTabsStyle,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// Style configuration for tabs in the titlebar
+pub struct WindowTabsStyle {
+    /// Style for active tab
+    pub active: TabStyle,
+    /// Style for inactive tabs
+    pub inactive: TabStyle,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// Style configuration for individual tabs
+pub struct TabStyle {
+    /// Background color
+    pub background_color: String,
+    /// Text color
+    pub text_color: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, DocumentedFields)]
@@ -267,8 +224,6 @@ pub struct Config {
     pub shortcuts: KeyboardShortcuts,
     /// Window appearance and behavior
     pub window: WindowConfig,
-    /// Tab bar appearance and behavior
-    pub tab_bar: TabBarConfig,
 }
 
 // Config versions for migration
@@ -370,35 +325,21 @@ impl Default for Config {
                 },
             },
             window: WindowConfig {
-                titlebar_background: "#1e2227".into(), // Dark header
-                border_color: "#21252b".into(),        // Darker border for depth
+                titlebar_height: 35,
+                titlebar_background: "#1e2227".into(),
                 interactive: InteractiveElementStyle {
                     background_color: "#32344a".into(),
                     text_color: "#abb2bf".into(),
                     border_color: "#21252b".into(),
                     hover_background: "#3e4451".into(),
                 },
-                controls: WindowControlsConfig {
-                    position: "left".into(),
-                    style: "native".into(),
-                    visible: true,
-                    custom: None,
-                },
-            },
-            tab_bar: TabBarConfig {
-                visible: true,
-                position: "top".into(),
-                style: TabBarStyle {
-                    height: 30,
-                    background_color: "#1a1b26".into(),
-                    active_tab: TabStyle {
+                tabs: WindowTabsStyle {
+                    active: TabStyle {
                         background_color: "#24283b".into(),
-                        border_color: "#32344a".into(),
                         text_color: "#a9b1d6".into(),
                     },
-                    inactive_tab: TabStyle {
+                    inactive: TabStyle {
                         background_color: "#1a1b26".into(),
-                        border_color: "#24283b".into(),
                         text_color: "#787c99".into(),
                     },
                 },
@@ -494,35 +435,21 @@ impl Config {
                 },
             },
             window: WindowConfig {
-                titlebar_background: "#1e2227".into(), // Dark header
-                border_color: "#21252b".into(),        // Darker border for depth
+                titlebar_height: 35,
+                titlebar_background: "#1e2227".into(),
                 interactive: InteractiveElementStyle {
                     background_color: "#32344a".into(),
                     text_color: "#abb2bf".into(),
                     border_color: "#21252b".into(),
                     hover_background: "#3e4451".into(),
                 },
-                controls: WindowControlsConfig {
-                    position: "left".into(),
-                    style: "native".into(),
-                    visible: true,
-                    custom: None,
-                },
-            },
-            tab_bar: TabBarConfig {
-                visible: true,
-                position: "top".into(),
-                style: TabBarStyle {
-                    height: 30,
-                    background_color: "#1a1b26".into(),
-                    active_tab: TabStyle {
+                tabs: WindowTabsStyle {
+                    active: TabStyle {
                         background_color: "#24283b".into(),
-                        border_color: "#32344a".into(),
                         text_color: "#a9b1d6".into(),
                     },
-                    inactive_tab: TabStyle {
+                    inactive: TabStyle {
                         background_color: "#1a1b26".into(),
-                        border_color: "#24283b".into(),
                         text_color: "#787c99".into(),
                     },
                 },
@@ -556,7 +483,6 @@ impl Config {
             "profiles",
             "shortcuts",
             "window",
-            "tab_bar",
         ] {
             if let Some(table) = doc.get_mut(table_key) {
                 if let Ok(comment) = Self::get_field_docs(table_key) {
