@@ -236,6 +236,51 @@ struct ConfigV0 {
 
 impl Default for Config {
     fn default() -> Self {
+        #[cfg(target_os = "windows")]
+        let default_profiles = Profiles {
+            default: "PowerShell".into(),
+            list: vec![
+                Profile {
+                    name: "PowerShell".into(),
+                    command: "powershell.exe".into(),
+                    args: None,
+                    font: None,
+                    theme: None,
+                },
+                Profile {
+                    name: "WSL".into(),
+                    command: "wsl.exe".into(),
+                    args: None,
+                    font: None,
+                    theme: None,
+                },
+            ],
+        };
+
+        #[cfg(target_os = "macos")]
+        let default_profiles = Profiles {
+            default: "Zsh".into(),
+            list: vec![Profile {
+                name: "Zsh".into(),
+                command: "/bin/zsh".into(),
+                args: None,
+                font: None,
+                theme: None,
+            }],
+        };
+
+        #[cfg(target_os = "linux")]
+        let default_profiles = Profiles {
+            default: "Bash".into(),
+            list: vec![Profile {
+                name: "Bash".into(),
+                command: "/bin/bash".into(),
+                args: None,
+                font: None,
+                theme: None,
+            }],
+        };
+
         Self {
             version: CURRENT_CONFIG_VERSION,
             font: FontConfig {
@@ -279,25 +324,7 @@ impl Default for Config {
                     y: 8,  // Default vertical padding
                 }),
             },
-            profiles: Some(Profiles {
-                default: "PowerShell".into(),
-                list: vec![
-                    Profile {
-                        name: "PowerShell".into(),
-                        command: "powershell.exe".into(),
-                        args: None,
-                        font: None,
-                        theme: None,
-                    },
-                    Profile {
-                        name: "WSL".into(),
-                        command: "wsl.exe".into(),
-                        args: None,
-                        font: None,
-                        theme: None,
-                    },
-                ],
-            }),
+            profiles: Some(default_profiles),
             shortcuts: KeyboardShortcuts {
                 new_tab: Shortcut {
                     key: "t".into(),
