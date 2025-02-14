@@ -31,19 +31,13 @@ pub struct FontConfig {
 /// Color theme configuration
 pub struct ThemeConfig {
     /// Terminal background color
-    pub background: String, // Terminal background
+    pub background: String,
     /// Default text color
-    pub foreground: String, // Default text color
+    pub foreground: String,
     /// Cursor color
-    pub cursor: String, // Cursor color
+    pub cursor: String,
     /// Selected text background color
-    pub selection: String, // Selected text background
-
-    /// UI elements
-    /// Optional border color
-    pub border: Option<String>, // Window/tab borders
-    /// Optional header background color
-    pub header: Option<String>, // Title bar background
+    pub selection: String,
 
     /// Standard ANSI Colors (0-7)
     /// ANSI 0 - Usually used for dark elements
@@ -228,6 +222,32 @@ pub struct TabBarConfig {
     pub style: TabBarStyle,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+/// Style configuration for interactive UI elements
+pub struct InteractiveElementStyle {
+    /// Background color
+    pub background_color: String,
+    /// Text color
+    pub text_color: String,
+    /// Border color
+    pub border_color: String,
+    /// Hover background color
+    pub hover_background: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+/// Window appearance configuration
+pub struct WindowConfig {
+    /// Background color of the titlebar
+    pub titlebar_background: String,
+    /// Border color of the window
+    pub border_color: String,
+    /// Controls configuration
+    pub controls: WindowControlsConfig,
+    /// Style for interactive elements like buttons
+    pub interactive: InteractiveElementStyle,
+}
+
 #[derive(Debug, Serialize, Deserialize, DocumentedFields)]
 /// Main application configuration
 pub struct Config {
@@ -245,8 +265,8 @@ pub struct Config {
     pub profiles: Option<Profiles>,
     /// Keyboard shortcut bindings
     pub shortcuts: KeyboardShortcuts,
-    /// Window controls configuration
-    pub window_controls: WindowControlsConfig,
+    /// Window appearance and behavior
+    pub window: WindowConfig,
     /// Tab bar appearance and behavior
     pub tab_bar: TabBarConfig,
 }
@@ -275,30 +295,23 @@ impl Default for Config {
                 foreground: "#abb2bf".into(), // Softer white for main text
                 cursor: "#528bff".into(),     // Bright blue cursor
                 selection: "#3e4451".into(),  // Subtle grey selection
-                border: Some("#21252b".into()), // Darker border for depth
-                header: Some("#1e2227".into()), // Even darker header
-
-                // Standard ANSI Colors
-                black: Some("#3f4451".into()),   // Dark grey for black
-                red: Some("#e06c75".into()),     // Soft red for errors
-                green: Some("#98c379".into()),   // Natural green for success
-                yellow: Some("#e5c07b".into()),  // Warm yellow for warnings
-                blue: Some("#61afef".into()),    // Clear blue for info
+                black: Some("#3f4451".into()), // Dark grey for black
+                red: Some("#e06c75".into()),  // Soft red for errors
+                green: Some("#98c379".into()), // Natural green for success
+                yellow: Some("#e5c07b".into()), // Warm yellow for warnings
+                blue: Some("#61afef".into()), // Clear blue for info
                 magenta: Some("#c678dd".into()), // Rich purple for special items
-                cyan: Some("#56b6c2".into()),    // Teal for alternate info
-                white: Some("#dcdfe4".into()),   // Light grey for white
-
-                // Bright variants
+                cyan: Some("#56b6c2".into()), // Teal for alternate info
+                white: Some("#dcdfe4".into()), // Light grey for white
                 bright_black: Some("#5c6370".into()), // Brighter grey for comments
-                bright_red: Some("#ff7a85".into()),   // Vibrant red
+                bright_red: Some("#ff7a85".into()), // Vibrant red
                 bright_green: Some("#b5e890".into()), // Lighter green
                 bright_yellow: Some("#ffd68a".into()), // Bright yellow
-                bright_blue: Some("#80caff".into()),  // Sky blue
+                bright_blue: Some("#80caff".into()), // Sky blue
                 bright_magenta: Some("#d7a1e7".into()), // Light purple
-                bright_cyan: Some("#7bc6d0".into()),  // Light teal
+                bright_cyan: Some("#7bc6d0".into()), // Light teal
                 bright_white: Some("#f0f2f4".into()), // Nearly white
             },
-
             shell: ShellConfig {
                 windows: "powershell.exe".into(),
                 linux: "/bin/bash".into(),
@@ -356,11 +369,21 @@ impl Default for Config {
                     ..Default::default()
                 },
             },
-            window_controls: WindowControlsConfig {
-                position: "left".into(),
-                style: "native".into(),
-                visible: true,
-                custom: None,
+            window: WindowConfig {
+                titlebar_background: "#1e2227".into(), // Dark header
+                border_color: "#21252b".into(),        // Darker border for depth
+                interactive: InteractiveElementStyle {
+                    background_color: "#32344a".into(),
+                    text_color: "#abb2bf".into(),
+                    border_color: "#21252b".into(),
+                    hover_background: "#3e4451".into(),
+                },
+                controls: WindowControlsConfig {
+                    position: "left".into(),
+                    style: "native".into(),
+                    visible: true,
+                    custom: None,
+                },
             },
             tab_bar: TabBarConfig {
                 visible: true,
@@ -470,11 +493,21 @@ impl Config {
                     ..Default::default()
                 },
             },
-            window_controls: WindowControlsConfig {
-                position: "left".into(),
-                style: "native".into(),
-                visible: true,
-                custom: None,
+            window: WindowConfig {
+                titlebar_background: "#1e2227".into(), // Dark header
+                border_color: "#21252b".into(),        // Darker border for depth
+                interactive: InteractiveElementStyle {
+                    background_color: "#32344a".into(),
+                    text_color: "#abb2bf".into(),
+                    border_color: "#21252b".into(),
+                    hover_background: "#3e4451".into(),
+                },
+                controls: WindowControlsConfig {
+                    position: "left".into(),
+                    style: "native".into(),
+                    visible: true,
+                    custom: None,
+                },
             },
             tab_bar: TabBarConfig {
                 visible: true,
@@ -522,7 +555,7 @@ impl Config {
             "terminal",
             "profiles",
             "shortcuts",
-            "window_controls",
+            "window",
             "tab_bar",
         ] {
             if let Some(table) = doc.get_mut(table_key) {

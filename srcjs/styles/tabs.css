@@ -2,7 +2,7 @@
   height: 35px;
   display: flex;
   align-items: center;
-  background: var(--terminal-header, #16161e);
+  background: var(--terminal-header);
   -webkit-app-region: drag;
 }
 
@@ -52,7 +52,7 @@
   display: none;
   align-items: center;
   padding: 0 4px;
-  background: var(--terminal-header, #16161e);
+  background: var(--terminal-header);
 }
 
 .tabs-scroll.visible {
@@ -62,7 +62,7 @@
 .tabs-scroll-button {
   background: none;
   border: none;
-  color: var(--terminal-fg, #a9b1d6);
+  color: var(--terminal-fg);
   padding: 0 4px;
   cursor: pointer;
   opacity: 0.7;
@@ -92,10 +92,11 @@
   height: 100%;
   border-radius: 0;
   margin-right: 0;
-  border-right: 1px solid var(--terminal-border, #24283b);
+  border-right: 1px solid var(--window-border);
   position: relative;
   transition: background-color 0.2s ease;
   -webkit-app-region: no-drag; /* Prevent titlebar drag on tabs */
+  color: var(--tab-inactive-text);
 }
 
 .tab::after {
@@ -105,7 +106,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--terminal-fg, #a9b1d6);
+  background: var(--accent-color);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -119,7 +120,8 @@
 }
 
 .tab.active {
-  background: var(--terminal-bg, #1a1b26);
+  background: var(--tab-active-bg);
+  color: var(--tab-active-text);
 }
 
 /* Remove the old tab container */
@@ -133,7 +135,7 @@
   gap: 8px;
   padding: 0 16px;
   height: 28px;
-  color: var(--terminal-fg, #a9b1d6);
+  color: var(--terminal-fg);
   background: transparent;
   border: none;
   border-radius: 4px;
@@ -146,8 +148,8 @@
 }
 
 .tab.active {
-  background: var(--terminal-bg, #1a1b26);
-  color: #fff;
+  background: var(--tab-active-bg);
+  color: var(--tab-active-text);
 }
 
 .tab.new-tab {
@@ -195,7 +197,7 @@
 .new-tab-container {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--interactive-bg);
   border-radius: 4px;
   padding: 0 2px;
   position: relative;
@@ -213,7 +215,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: var(--terminal-fg, #a9b1d6);
+  color: var(--interactive-fg);
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -227,14 +229,14 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: var(--terminal-fg, #a9b1d6);
+  color: var(--interactive-fg);
   cursor: pointer;
   transition: background-color 0.2s;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid var(--interactive-border);
 }
 
 .new-tab-container:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--interactive-hover-bg);
 }
 
 .profile-modal {
@@ -263,8 +265,8 @@
 
 .profile-menu {
   position: relative;
-  background: var(--terminal-bg, #1a1b26);
-  border: 1px solid var(--terminal-border, #24283b);
+  background: var(--terminal-bg);
+  border: 1px solid var(--window-border);
   border-radius: 8px;
   z-index: 10001;
   padding: 12px 0;
@@ -287,7 +289,7 @@
 .profile-item {
   padding: 8px 16px;
   cursor: pointer;
-  color: var(--terminal-fg, #a9b1d6);
+  color: var(--terminal-fg);
   font-size: 14px;
   transition: all 0.2s ease;
 }
@@ -298,14 +300,14 @@
 }
 
 .profile-item.manage {
-  border-top: 1px solid var(--terminal-border, #24283b);
+  border-top: 1px solid var(--interactive-border);
   margin-top: 8px;
   padding-top: 12px;
-  color: #7aa2f7;
+  color: var(--accent-color);
 }
 
 .profile-item.manage:hover {
-  background: rgba(122, 162, 247, 0.1);
+  background: color-mix(in srgb, var(--accent-color) 10%, transparent);
 }
 
 .modal-close {
@@ -314,7 +316,7 @@
   right: 12px;
   background: none;
   border: none;
-  color: var(--terminal-fg, #a9b1d6);
+  color: var(--terminal-fg);
   font-size: 20px;
   cursor: pointer;
   padding: 0;

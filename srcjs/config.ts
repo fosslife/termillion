@@ -10,8 +10,6 @@ export interface ThemeConfig {
   foreground: string;
   cursor: string;
   selection: string;
-  border?: string;
-  header?: string;
   black?: string;
   red?: string;
   green?: string;
@@ -110,6 +108,20 @@ export interface TabBarConfig {
   style: TabBarStyle;
 }
 
+export interface InteractiveElementStyle {
+  background_color: string;
+  text_color: string;
+  border_color: string;
+  hover_background: string;
+}
+
+export interface WindowConfig {
+  titlebar_background: string;
+  border_color: string;
+  controls: WindowControlsConfig;
+  interactive: InteractiveElementStyle;
+}
+
 export interface Config {
   version: number;
   font: FontConfig;
@@ -118,6 +130,6 @@ export interface Config {
   terminal: TerminalSettings;
   profiles: Profiles;
   shortcuts: KeyboardShortcuts;
-  window_controls: WindowControlsConfig;
+  window: WindowConfig;
   tab_bar: TabBarConfig;
 }

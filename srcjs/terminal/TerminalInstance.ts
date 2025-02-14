@@ -37,6 +37,76 @@ export class TerminalInstance {
     this.container = container;
     container.className = "terminal-container";
 
+    // Set theme CSS variables
+    document.documentElement.style.setProperty(
+      "--terminal-bg",
+      this.config.theme.background
+    );
+    document.documentElement.style.setProperty(
+      "--terminal-fg",
+      this.config.theme.foreground
+    );
+    document.documentElement.style.setProperty(
+      "--terminal-header",
+      this.config.window.titlebar_background
+    );
+    document.documentElement.style.setProperty(
+      "--window-border",
+      this.config.window.border_color
+    );
+
+    // Interactive elements theme
+    document.documentElement.style.setProperty(
+      "--interactive-bg",
+      this.config.window.interactive.background_color
+    );
+    document.documentElement.style.setProperty(
+      "--interactive-fg",
+      this.config.window.interactive.text_color
+    );
+    document.documentElement.style.setProperty(
+      "--interactive-border",
+      this.config.window.interactive.border_color
+    );
+    document.documentElement.style.setProperty(
+      "--interactive-hover-bg",
+      this.config.window.interactive.hover_background
+    );
+
+    // Add tab-specific theme variables
+    document.documentElement.style.setProperty(
+      "--tab-active-bg",
+      this.config.tab_bar.style.active_tab.background_color
+    );
+    document.documentElement.style.setProperty(
+      "--tab-active-border",
+      this.config.tab_bar.style.active_tab.border_color
+    );
+    document.documentElement.style.setProperty(
+      "--tab-active-text",
+      this.config.tab_bar.style.active_tab.text_color
+    );
+    document.documentElement.style.setProperty(
+      "--tab-inactive-bg",
+      this.config.tab_bar.style.inactive_tab.background_color
+    );
+    document.documentElement.style.setProperty(
+      "--tab-inactive-border",
+      this.config.tab_bar.style.inactive_tab.border_color
+    );
+    document.documentElement.style.setProperty(
+      "--tab-inactive-text",
+      this.config.tab_bar.style.inactive_tab.text_color
+    );
+    document.documentElement.style.setProperty(
+      "--tab-bar-bg",
+      this.config.tab_bar.style.background_color
+    );
+    document.documentElement.style.setProperty(
+      "--accent-color",
+      this.config.theme.blue ?? "#61afef"
+    );
+
     // Set padding CSS variables from config
     const padding = this.config.terminal?.padding ?? { x: 12, y: 8 };
     container.style.setProperty("--terminal-padding-x", `${padding.x}px`);

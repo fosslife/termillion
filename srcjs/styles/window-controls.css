@@ -14,7 +14,7 @@ body {
 .titlebar {
   height: 30px;
   min-height: 30px;
-  background: var(--terminal-header, #16161e);
+  background: var(--terminal-header);
   user-select: none;
   -webkit-user-select: none;
   display: flex;
@@ -35,7 +35,7 @@ body {
 }
 
 .titlebar-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--terminal-fg) 10%, transparent);
 }
 
 .titlebar-button img {
