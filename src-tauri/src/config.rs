@@ -14,150 +14,239 @@ use tauri::{AppHandle, Manager};
 const CURRENT_CONFIG_VERSION: u32 = 1;
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Font configuration settings
 pub struct FontConfig {
+    /// Primary font family
     pub family: String,
+    /// Fallback font families
     pub fallback_family: String,
+    /// Font size in pixels
     pub size: u16,
+    /// Line height multiplier
     pub line_height: f32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Color theme configuration
 pub struct ThemeConfig {
-    // Basic colors
+    /// Terminal background color
     pub background: String, // Terminal background
+    /// Default text color
     pub foreground: String, // Default text color
-    pub cursor: String,     // Cursor color
-    pub selection: String,  // Selected text background
+    /// Cursor color
+    pub cursor: String, // Cursor color
+    /// Selected text background color
+    pub selection: String, // Selected text background
 
-    // UI elements
+    /// UI elements
+    /// Optional border color
     pub border: Option<String>, // Window/tab borders
+    /// Optional header background color
     pub header: Option<String>, // Title bar background
 
-    // Standard ANSI Colors (0-7)
-    pub black: Option<String>,   // ANSI 0 - Usually used for dark elements
-    pub red: Option<String>,     // ANSI 1 - Error messages
-    pub green: Option<String>,   // ANSI 2 - Success messages
-    pub yellow: Option<String>,  // ANSI 3 - Warnings/modified files
-    pub blue: Option<String>,    // ANSI 4 - Information/special items
-    pub magenta: Option<String>, // ANSI 5 - Debug messages/special items
-    pub cyan: Option<String>,    // ANSI 6 - Info/path segments
-    pub white: Option<String>,   // ANSI 7 - Default foreground fallback
+    /// Standard ANSI Colors (0-7)
+    /// ANSI 0 - Usually used for dark elements
+    pub black: Option<String>,
+    /// ANSI 1 - Error messages
+    pub red: Option<String>,
+    /// ANSI 2 - Success messages
+    pub green: Option<String>,
+    /// ANSI 3 - Warnings/modified files
+    pub yellow: Option<String>,
+    /// ANSI 4 - Information/special items
+    pub blue: Option<String>,
+    /// ANSI 5 - Debug messages/special items
+    pub magenta: Option<String>,
+    /// ANSI 6 - Info/path segments
+    pub cyan: Option<String>,
+    /// ANSI 7 - Default foreground fallback
+    pub white: Option<String>,
 
-    // Bright ANSI Colors (8-15)
-    pub bright_black: Option<String>,   // ANSI 8  - Grey/comments
-    pub bright_red: Option<String>,     // ANSI 9  - Lighter red
-    pub bright_green: Option<String>,   // ANSI 10 - Lighter green
-    pub bright_yellow: Option<String>,  // ANSI 11 - Lighter yellow
-    pub bright_blue: Option<String>,    // ANSI 12 - Lighter blue
-    pub bright_magenta: Option<String>, // ANSI 13 - Lighter magenta
-    pub bright_cyan: Option<String>,    // ANSI 14 - Lighter cyan
-    pub bright_white: Option<String>,   // ANSI 15 - Bright white
+    /// Bright ANSI Colors (8-15)
+    /// ANSI 8  - Grey/comments
+    pub bright_black: Option<String>,
+    /// ANSI 9  - Lighter red
+    pub bright_red: Option<String>,
+    /// ANSI 10 - Lighter green
+    pub bright_green: Option<String>,
+    /// ANSI 11 - Lighter yellow
+    pub bright_yellow: Option<String>,
+    /// ANSI 12 - Lighter blue
+    pub bright_blue: Option<String>,
+    /// ANSI 13 - Lighter magenta
+    pub bright_magenta: Option<String>,
+    /// ANSI 14 - Lighter cyan
+    pub bright_cyan: Option<String>,
+    /// ANSI 15 - Bright white
+    pub bright_white: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Default shell commands for different platforms
 pub struct ShellConfig {
+    /// Default shell for Windows
     pub windows: String,
+    /// Default shell for Linux
     pub linux: String,
+    /// Default shell for macOS
     pub macos: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Terminal behavior settings
 pub struct TerminalSettings {
+    /// Number of lines to keep in scrollback buffer
     pub scrollback: Option<u32>,
+    /// Padding around terminal content
     pub padding: Option<PaddingConfig>, // Changed to struct
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Terminal padding configuration
 pub struct PaddingConfig {
+    /// Horizontal padding in pixels
     pub x: u32, // Horizontal padding
+    /// Vertical padding in pixels
     pub y: u32, // Vertical padding
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Terminal profile configuration
 pub struct Profile {
+    /// Profile name
     pub name: String,
+    /// Command to execute
     pub command: String,
+    /// Optional command arguments
     pub args: Option<Vec<String>>,
-    // Optional overrides
+    /// Optional font overrides
     pub font: Option<FontConfig>,
+    /// Optional theme overrides
     pub theme: Option<ThemeConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Collection of terminal profiles
 pub struct Profiles {
+    /// Default profile name
     pub default: String,
+    /// List of available profiles
     pub list: Vec<Profile>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+/// Keyboard shortcut configuration
 pub struct Shortcut {
+    /// Key to bind
     pub key: String,
+    /// Whether Ctrl is required
     #[serde(default)]
     pub ctrl: bool,
+    /// Whether Shift is required
     #[serde(default)]
     pub shift: bool,
+    /// Whether Alt is required
     #[serde(default)]
     pub alt: bool,
+    /// Whether Meta/Command is required
     #[serde(default)]
     pub meta: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Keyboard shortcut bindings
 pub struct KeyboardShortcuts {
+    /// Create new tab
     pub new_tab: Shortcut,
+    /// Close current tab
     pub close_tab: Shortcut,
+    /// Reload configuration
     pub reload_config: Shortcut,
+    /// Show profiles menu
     pub show_profiles: Shortcut,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Window controls configuration
 pub struct WindowControlsConfig {
+    /// Position of window controls ("left" | "right")
     pub position: String, // "left" | "right"
-    pub style: String,    // "native" | "custom"
+    /// Style of window controls ("native" | "custom")
+    pub style: String, // "native" | "custom"
+    /// Whether window controls are visible
     pub visible: bool,
+    /// Custom window control icons
     pub custom: Option<CustomWindowControls>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Custom window control icons
 pub struct CustomWindowControls {
+    /// Close button icon
     pub close: String,
+    /// Minimize button icon
     pub minimize: String,
+    /// Maximize button icon
     pub maximize: String,
+    /// Restore button icon
     pub restore: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Tab bar style configuration
 pub struct TabBarStyle {
+    /// Height of the tab bar
     pub height: u32,
+    /// Background color
     pub background_color: String,
+    /// Style for active tab
     pub active_tab: TabStyle,
+    /// Style for inactive tabs
     pub inactive_tab: TabStyle,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Style configuration for individual tabs
 pub struct TabStyle {
+    /// Background color
     pub background_color: String,
+    /// Border color
     pub border_color: String,
+    /// Text color
     pub text_color: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Tab bar configuration
 pub struct TabBarConfig {
+    /// Whether tab bar is visible
     pub visible: bool,
+    /// Position of tab bar ("top" | "bottom")
     pub position: String, // "top" | "bottom"
+    /// Style configuration
     pub style: TabBarStyle,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+/// Main application configuration
 pub struct Config {
+    /// Configuration version (used for migrations)
     pub version: u32,
+    /// Font settings for the terminal
     pub font: FontConfig,
+    /// Color theme settings
     pub theme: ThemeConfig,
+    /// Default shell commands for different platforms
     pub shell: ShellConfig,
+    /// Terminal behavior settings
     pub terminal: TerminalSettings,
+    /// User-defined terminal profiles
     pub profiles: Option<Profiles>,
+    /// Keyboard shortcut bindings
     pub shortcuts: KeyboardShortcuts,
+    /// Window controls configuration
     pub window_controls: WindowControlsConfig,
+    /// Tab bar appearance and behavior
     pub tab_bar: TabBarConfig,
 }
 
