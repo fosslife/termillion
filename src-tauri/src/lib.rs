@@ -6,8 +6,7 @@ mod validation;
 use std::env;
 
 use config::Config;
-use pty::PtyManager;
-use tauri::{Manager, Window};
+use tauri::Manager;
 use validation::ValidationError;
 
 #[tauri::command]
@@ -28,21 +27,21 @@ async fn save_config(app: tauri::AppHandle, config: Config) -> Result<(), String
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let pty_manager = PtyManager::new();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .manage(pty_manager)
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            create_pty,
-            resize_pty,
-            destroy_pty,
-            write_pty,
             get_config,
             save_config,
-            validate_config
+            validate_config,
+            // PTY commands
+            pty::create_pty,
+            pty::write_pty,
+            pty::resize_pty,
+            pty::destroy_pty,
+            pty::is_pty_alive,
+            pty::get_active_ptys
         ])
         .setup(|app| {
             let process_arg: Vec<String> = env::args().collect();
@@ -58,67 +57,4 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-#[tauri::command]
-async fn write_pty(
-    state: tauri::State<'_, PtyManager>,
-    pty_id: String,
-    data: String,
-) -> Result<(), String> {
-    state.write_pty(pty_id, data)
-}
-
-#[tauri::command]
-async fn create_pty(
-    window: Window,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, PtyManager>,
-    cwd: String,
-    rows: u16,
-    cols: u16,
-    command: Option<String>,
-    args: Option<Vec<String>>,
-) -> Result<String, String> {
-    let config = config::Config::load(&app)?;
-
-    // Use provided command or fall back to default shell from config
-    let command = command.unwrap_or_else(|| {
-        #[cfg(target_os = "windows")]
-        return config.shell.windows.clone();
-        #[cfg(target_os = "linux")]
-        return config.shell.linux.clone();
-        #[cfg(target_os = "macos")]
-        return config.shell.macos.clone();
-    });
-
-    // Create PTY with command and args
-    let pty_id = state
-        .create_pty_with_command(window, cwd, rows, cols, command, args)
-        .await?;
-
-    // Add health check
-    if !state.is_pty_alive(&pty_id) {
-        return Err("PTY failed to start properly".to_string());
-    }
-
-    Ok(pty_id)
-}
-
-#[tauri::command]
-async fn resize_pty(
-    state: tauri::State<'_, PtyManager>,
-    pty_id: String,
-    rows: u16,
-    cols: u16,
-) -> Result<(), String> {
-    state.resize_pty(pty_id, rows, cols)
-}
-
-#[tauri::command]
-async fn destroy_pty(state: tauri::State<'_, PtyManager>, pty_id: String) -> Result<(), String> {
-    dbg!("Destroyed PTY with ID: {}", pty_id.clone());
-
-    state.destroy_pty(pty_id);
-    Ok(())
 }
