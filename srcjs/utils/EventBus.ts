@@ -5,6 +5,7 @@ export class EventBus {
   public static PROFILE_CHANGED = "profileChanged";
   public static PROFILE_ADDED = "profileAdded";
   public static PROFILE_REMOVED = "profileRemoved";
+  public static TERMINAL_EXIT = "terminalExit";
 
   private constructor() {}
 

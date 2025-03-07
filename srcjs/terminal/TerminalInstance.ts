@@ -19,7 +19,9 @@ export class TerminalInstance {
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private unlistenOutput: (() => void) | null = null;
+  private unlistenExit: (() => void) | null = null;
   private focused: boolean = false;
+  private isBeingDestroyed: boolean = false;
 
   constructor(
     private readonly config: Config,
@@ -159,12 +161,37 @@ export class TerminalInstance {
     this.unlistenOutput = (await getCurrentWindow().listen(
       `pty://output/${this.ptyId}`,
       (event: any) => {
-        this.xterm?.write(event.payload);
+        if (!this.isBeingDestroyed) {
+          this.xterm?.write(event.payload);
+        }
+      }
+    )) as unknown as () => void;
+
+    // Add exit event listener
+    this.unlistenExit = (await getCurrentWindow().listen(
+      `pty://exit/${this.ptyId}`,
+      (event: any) => {
+        console.log(
+          `Terminal process exited with status: ${JSON.stringify(
+            event.payload
+          )}`
+        );
+
+        // Avoid duplicate exit events
+        if (!this.isBeingDestroyed && this.ptyId) {
+          this.isBeingDestroyed = true;
+
+          // Emit an event that the tab manager can listen to
+          EventBus.getInstance().emit(EventBus.TERMINAL_EXIT, this.ptyId);
+
+          // Clean up resources immediately to prevent memory leaks
+          this.cleanupResources();
+        }
       }
     )) as unknown as () => void;
 
     this.xterm.onData((data) => {
-      if (this.ptyId) {
+      if (this.ptyId && !this.isBeingDestroyed) {
         invoke("write_pty", {
           ptyId: this.ptyId,
           data,
@@ -206,7 +233,8 @@ export class TerminalInstance {
   }
 
   fit(): void {
-    if (!this.fitAddon || !this.xterm || !this.ptyId) return;
+    if (!this.fitAddon || !this.xterm || !this.ptyId || this.isBeingDestroyed)
+      return;
 
     // Store current viewport position
     const buffer = this.xterm.buffer.active;
@@ -234,15 +262,66 @@ export class TerminalInstance {
   }
 
   async destroy(): Promise<void> {
-    // Clean up event listeners
-    this.container?.removeEventListener("click", this.handleClick);
-    this.resizeObserver?.disconnect();
-    this.unlistenOutput?.();
+    console.log(`Destroying terminal instance with ptyId=${this.ptyId}`);
+
+    // Mark as being destroyed to prevent further operations
+    this.isBeingDestroyed = true;
+
+    // Clean up resources
+    await this.cleanupResources();
 
     // Destroy PTY
     if (this.ptyId) {
-      await invoke("destroy_pty", { ptyId: this.ptyId });
+      try {
+        console.log(`Invoking destroy_pty for ${this.ptyId}`);
+        await invoke("destroy_pty", { ptyId: this.ptyId });
+        console.log(`Successfully destroyed PTY ${this.ptyId}`);
+      } catch (error) {
+        console.error("Error destroying PTY:", error);
+      }
       this.ptyId = null;
+    }
+
+    // Remove container reference
+    this.container = null;
+
+    console.log("Terminal instance destruction complete");
+  }
+
+  isFocused(): boolean {
+    return this.focused;
+  }
+
+  private setupFocusTracking(): void {
+    if (!this.xterm) return;
+
+    // Use the correct event handling for xterm.js
+    this.xterm.element?.addEventListener("focus", () => {
+      this.focused = true;
+      EventBus.getInstance().emit("terminalFocus");
+    });
+
+    this.xterm.element?.addEventListener("blur", () => {
+      this.focused = false;
+    });
+  }
+
+  // Add a method to clean up resources without destroying the PTY
+  private async cleanupResources(): Promise<void> {
+    console.log(`Cleaning up resources for terminal with ptyId=${this.ptyId}`);
+
+    // Clean up event listeners
+    this.container?.removeEventListener("click", this.handleClick);
+    this.resizeObserver?.disconnect();
+
+    if (this.unlistenOutput) {
+      this.unlistenOutput();
+      this.unlistenOutput = null;
+    }
+
+    if (this.unlistenExit) {
+      this.unlistenExit();
+      this.unlistenExit = null;
     }
 
     // Dispose xterm
@@ -251,26 +330,11 @@ export class TerminalInstance {
       this.xterm = null;
     }
 
-    this.container = null;
-  }
-
-  isFocused(): boolean {
-    return this.focused;
-  }
-
-  private setupFocusTracking(): void {
+    // Clear container
     if (this.container) {
-      this.container.addEventListener("focusin", () => {
-        this.focused = true;
-        EventBus.getInstance().emit("terminalFocus", this);
-      });
-
-      this.container.addEventListener("focusout", (e) => {
-        // Only lose focus if the new focus is outside the terminal
-        if (!this.container?.contains(e.relatedTarget as Node)) {
-          this.focused = false;
-        }
-      });
+      this.container.innerHTML = "";
     }
+
+    this.focused = false;
   }
 }

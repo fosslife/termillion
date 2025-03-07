@@ -2,7 +2,10 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize}
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Window};
@@ -14,6 +17,7 @@ use super::utils;
 mod types {
     use super::*;
     use std::io::Write;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     // Store PTY instances and their associated child processes
     pub struct PtyInstance {
@@ -22,6 +26,7 @@ mod types {
         pub reader_thread: Option<thread::JoinHandle<()>>,
         pub exit_watcher: Option<thread::JoinHandle<()>>,
         pub writer: Option<Box<dyn Write + Send>>,
+        pub exit_event_sent: Arc<AtomicBool>, // Track if exit event has been sent
     }
 
     // Struct for PTY size
@@ -155,6 +160,10 @@ pub async fn create_pty(
         child
     };
 
+    // Create a flag to track if exit event has been sent
+    let exit_event_sent = Arc::new(AtomicBool::new(false));
+    let exit_event_sent_clone = exit_event_sent.clone();
+
     // Clone window and pty_id for the reader thread
     let window_clone = window.clone();
     let pty_id_clone = pty_id.clone();
@@ -173,6 +182,7 @@ pub async fn create_pty(
             match reader.read(&mut buffer) {
                 Ok(0) => {
                     // End of stream, PTY closed
+                    println!("PTY reader detected EOF, terminal closed");
                     break;
                 }
                 Ok(n) => {
@@ -193,9 +203,20 @@ pub async fn create_pty(
             }
         }
 
-        // Emit PTY exit event
-        if let Err(e) = window_clone.emit(&format!("pty://exit/{}", pty_id_clone), ()) {
-            eprintln!("Failed to emit PTY exit event: {}", e);
+        // Emit PTY exit event when the reader thread ends, but only if not already sent
+        if !exit_event_sent_clone.load(Ordering::SeqCst) {
+            if exit_event_sent_clone
+                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+            {
+                println!("Sending exit event from reader thread");
+                if let Err(e) = window_clone.emit(
+                    &format!("pty://exit/{}", pty_id_clone),
+                    serde_json::json!({ "status": "Reader thread ended" }),
+                ) {
+                    eprintln!("Failed to emit PTY exit event from reader thread: {}", e);
+                }
+            }
         }
     });
 
@@ -208,6 +229,7 @@ pub async fn create_pty(
             reader_thread: Some(reader_thread),
             exit_watcher: None, // We'll set this after creating the thread
             writer: Some(writer),
+            exit_event_sent,
         },
     );
 
@@ -225,7 +247,10 @@ pub async fn create_pty(
             if let Some(mut store) = store::get_mut(&pty_id_exit_clone) {
                 let pty = match store.get_mut(&pty_id_exit_clone) {
                     Some(p) => p,
-                    None => break, // PTY was removed, exit the loop
+                    None => {
+                        println!("PTY was removed from store, exit watcher ending");
+                        break; // PTY was removed, exit the loop
+                    }
                 };
 
                 // Check if the process has exited
@@ -234,20 +259,29 @@ pub async fn create_pty(
                         // Process has exited
                         println!("PTY process exited with status: {:?}", status);
 
-                        // Emit exit event with status
-                        if let Err(e) = window_exit_clone.emit(
-                            &format!("pty://exit/{}", pty_id_exit_clone),
-                            serde_json::json!({ "status": format!("{:?}", status) }),
-                        ) {
-                            eprintln!("Failed to emit PTY exit event: {}", e);
+                        // Emit exit event with status, but only if not already sent
+                        if !pty.exit_event_sent.load(Ordering::SeqCst) {
+                            if pty
+                                .exit_event_sent
+                                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                                .is_ok()
+                            {
+                                println!("Sending exit event from exit watcher");
+                                if let Err(e) = window_exit_clone.emit(
+                                    &format!("pty://exit/{}", pty_id_exit_clone),
+                                    serde_json::json!({ "status": format!("{:?}", status) }),
+                                ) {
+                                    eprintln!("Failed to emit PTY exit event: {}", e);
+                                }
+                            }
                         }
 
-                        // Clean up the PTY after a short delay to allow final output to be read
-                        drop(store); // Release the lock before sleeping
-                        thread::sleep(Duration::from_millis(100));
+                        // Clean up immediately after detecting exit
+                        drop(store); // Release the lock before cleaning up
 
                         // Try to remove the PTY from the store
                         if let Some(mut pty) = store::remove(&pty_id_exit_clone) {
+                            println!("Cleaning up PTY resources after exit");
                             // We don't need to kill the child as it's already exited
                             // Just clean up the reader thread
                             if let Some(_thread) = pty.reader_thread.take() {
@@ -259,7 +293,7 @@ pub async fn create_pty(
                         break; // Exit the loop
                     }
                     Ok(None) => {
-                        // Process is still running, continue checking
+                        // Process is still running
                         drop(store); // Release the lock before sleeping
                         thread::sleep(Duration::from_millis(500));
                     }
@@ -272,6 +306,7 @@ pub async fn create_pty(
                 }
             } else {
                 // PTY not found, exit the loop
+                println!("PTY not found in store, exit watcher ending");
                 break;
             }
         }
@@ -342,6 +377,9 @@ pub async fn resize_pty(pty_id: String, rows: u16, cols: u16) -> Result<(), Stri
 #[tauri::command]
 pub async fn destroy_pty(pty_id: String) -> Result<(), String> {
     if let Some(mut pty) = store::remove(&pty_id) {
+        // Mark as exited to prevent further exit events
+        pty.exit_event_sent.store(true, Ordering::SeqCst);
+
         // First try to gracefully kill the child process
         if let Err(e) = pty.child.kill() {
             eprintln!("Failed to kill PTY child process: {}", e);
@@ -387,10 +425,19 @@ pub async fn is_pty_alive(pty_id: String) -> Result<bool, String> {
     if let Some(mut store) = store::get_mut(&pty_id) {
         let pty = store.get_mut(&pty_id).unwrap();
 
+        // If exit event has been sent, consider the PTY not alive
+        if pty.exit_event_sent.load(Ordering::SeqCst) {
+            return Ok(false);
+        }
+
         // Try to get exit status - if we can, it's not running
         match pty.child.try_wait() {
-            Ok(Some(_)) => Ok(false), // Process has exited
-            Ok(None) => Ok(true),     // Process is still running
+            Ok(Some(_)) => {
+                // Mark as exited
+                pty.exit_event_sent.store(true, Ordering::SeqCst);
+                Ok(false) // Process has exited
+            }
+            Ok(None) => Ok(true), // Process is still running
             Err(e) => Err(e.to_string()),
         }
     } else {
