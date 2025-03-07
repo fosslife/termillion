@@ -41,14 +41,6 @@ export class TabManager {
     // Listen for terminal exit events
     EventBus.getInstance().on(EventBus.TERMINAL_EXIT, async (ptyId: string) => {
       console.log(`Terminal exit event received for pty: ${ptyId}`);
-      console.log(
-        `Current tabs:`,
-        this.tabs.map((t) => ({
-          id: t.id,
-          terminalId: t.terminalId,
-          active: t.active,
-        }))
-      );
 
       // Skip if this terminal is already being closed
       if (this.terminalsBeingClosed.has(ptyId)) {
@@ -59,46 +51,59 @@ export class TabManager {
       }
 
       // Find the tab with this terminal ID
-      let tab = this.tabs.find((t) => t.terminalId === ptyId);
+      const tabWithTerminalId = this.tabs.find((t) => t.terminalId === ptyId);
 
-      // If no tab found with matching terminalId, check all tabs
-      if (!tab) {
-        console.log(`No tab found with terminalId=${ptyId}, checking all tabs`);
-
-        // Check all tabs to see if any have a matching ptyId in their container
-        for (const t of this.tabs) {
-          const container = this.terminalContainers.get(t.id);
-          if (container && container.dataset.ptyId === ptyId) {
-            console.log(
-              `Found tab ${t.id} with container having ptyId=${ptyId}`
-            );
-            tab = t;
-            // Update the tab's terminal ID to match the actual PTY ID
-            tab.terminalId = ptyId;
-            break;
-          }
-        }
-      }
-
-      if (tab) {
-        console.log(`Found tab ${tab.id} for terminal ${ptyId}, closing it`);
+      // If found, close it
+      if (tabWithTerminalId) {
+        console.log(
+          `Found tab ${tabWithTerminalId.id} with matching terminalId=${ptyId}, closing it`
+        );
 
         // Mark this terminal as being closed
         this.terminalsBeingClosed.add(ptyId);
 
         try {
           // Force close the tab since the terminal has exited
-          await this.closeTab(tab.id, true);
-          console.log(`Tab ${tab.id} closed successfully`);
+          await this.closeTab(tabWithTerminalId.id, true);
+          console.log(`Tab ${tabWithTerminalId.id} closed successfully`);
         } catch (error) {
-          console.error(`Error closing tab ${tab.id}:`, error);
+          console.error(`Error closing tab ${tabWithTerminalId.id}:`, error);
         } finally {
           // Remove from the set after closing
           this.terminalsBeingClosed.delete(ptyId);
         }
-      } else {
-        console.log(`No tab found for terminal ${ptyId}, cannot close tab`);
+        return;
       }
+
+      // If not found by terminalId, check containers
+      console.log(`No tab found with terminalId=${ptyId}, checking containers`);
+
+      // Find a tab whose container has this ptyId
+      for (const tab of this.tabs) {
+        const container = this.terminalContainers.get(tab.id);
+        if (container && container.dataset.ptyId === ptyId) {
+          console.log(
+            `Found tab ${tab.id} with container having ptyId=${ptyId}`
+          );
+
+          // Mark this terminal as being closed
+          this.terminalsBeingClosed.add(ptyId);
+
+          try {
+            // Force close the tab since the terminal has exited
+            await this.closeTab(tab.id, true);
+            console.log(`Tab ${tab.id} closed successfully`);
+          } catch (error) {
+            console.error(`Error closing tab ${tab.id}:`, error);
+          } finally {
+            // Remove from the set after closing
+            this.terminalsBeingClosed.delete(ptyId);
+          }
+          return;
+        }
+      }
+
+      console.log(`No tab found for terminal ${ptyId}, cannot close tab`);
     });
 
     this.profileManager = new ProfileManager(config, (profiles) => {
@@ -241,81 +246,117 @@ export class TabManager {
   }
 
   async createFirstTab(): Promise<void> {
-    // Generate a unique ID for this tab
-    const id = crypto.randomUUID();
-    console.log(`Creating first tab with id=${id}`);
+    try {
+      // Generate a unique ID for this tab
+      const id = crypto.randomUUID();
+      console.log(`Creating first tab with id=${id}`);
 
-    // Get shell configuration
-    let shellName = await this.getDefaultShellName();
-    let command: string | undefined;
-    let args: string[] | undefined;
+      // Get shell configuration
+      let shellName = await this.getDefaultShellName();
+      let command: string | undefined;
+      let args: string[] | undefined;
 
-    // Check if we have a default profile
-    if (this.config.profiles) {
-      const defaultProfile = this.config.profiles.list.find(
-        (p) => p.name === this.config.profiles?.default
-      );
-      if (defaultProfile) {
-        shellName = defaultProfile.name;
-        command = defaultProfile.command;
-        args = defaultProfile.args ?? undefined;
+      // Check if we have a default profile
+      if (this.config.profiles) {
+        const defaultProfile = this.config.profiles.list.find(
+          (p) => p.name === this.config.profiles?.default
+        );
+        if (defaultProfile) {
+          shellName = defaultProfile.name;
+          command = defaultProfile.command;
+          args = defaultProfile.args ?? undefined;
+        }
+      }
+
+      // Create a new tab object
+      const tab: Tab = {
+        id,
+        title: shellName,
+        terminalId: id, // Initially use the tab ID as the terminal ID
+        active: true, // First tab is active by default
+      };
+
+      // Add the tab to our list
+      this.tabs.push(tab);
+      console.log(`Added first tab ${id} to tabs list`);
+
+      // Make sure the main container exists
+      if (!this.terminalContainer) {
+        console.error("Main terminal container not found");
+        return;
+      }
+
+      // Clear the main container
+      this.terminalContainer.innerHTML = "";
+
+      // Create terminal container
+      const terminalContainer = this.createTerminalContainer(id);
+
+      // Add the container to the main container
+      this.terminalContainer.appendChild(terminalContainer);
+      console.log(`Created container for first tab ${id}`);
+
+      // Create terminal
+      const terminal = this.terminalManager.createTerminal(id);
+      console.log(`Created terminal for first tab ${id}`);
+
+      // Mount terminal with profile
+      await terminal.mount(terminalContainer, command, args);
+      console.log(`Mounted terminal for first tab ${id}`);
+
+      // Update the tab with the actual PTY ID
+      const ptyId = terminal.getPtyId();
+      if (ptyId) {
+        console.log(`Updating first tab ${id} with actual ptyId=${ptyId}`);
+        tab.terminalId = ptyId;
+      } else {
+        console.warn(`Failed to get ptyId for first terminal ${id}`);
+      }
+
+      // Make sure the container is visible
+      terminalContainer.style.display = "block";
+
+      // Focus the terminal
+      terminal.focus();
+
+      // Update the UI
+      this.updateTabsUI();
+      console.log(`First tab ${id} creation complete`);
+    } catch (error) {
+      console.error("Error creating first tab:", error);
+      // If there was an error, try to create a simple tab as a fallback
+      if (this.tabs.length === 0) {
+        try {
+          const id = crypto.randomUUID();
+          const shellName = "Terminal";
+
+          // Create a simple tab
+          const tab: Tab = {
+            id,
+            title: shellName,
+            terminalId: id,
+            active: true,
+          };
+
+          this.tabs.push(tab);
+          this.updateTabsUI();
+
+          // Try to create a terminal if possible
+          if (this.terminalContainer) {
+            const terminalContainer = this.createTerminalContainer(id);
+            this.terminalContainer.innerHTML = "";
+            this.terminalContainer.appendChild(terminalContainer);
+
+            const terminal = this.terminalManager.createTerminal(id);
+            await terminal.mount(terminalContainer);
+            terminalContainer.style.display = "block";
+            terminal.focus();
+          }
+        } catch (fallbackError) {
+          console.error("Failed to create fallback tab:", fallbackError);
+        }
       }
     }
-
-    // Create a new tab object
-    const tab: Tab = {
-      id,
-      title: shellName,
-      terminalId: id, // Initially use the tab ID as the terminal ID
-      active: true, // First tab is active by default
-    };
-
-    // Add the tab to our list
-    this.tabs.push(tab);
-    console.log(`Added first tab ${id} to tabs list`);
-
-    // Create terminal container
-    const terminalContainer = this.createTerminalContainer(id);
-
-    // Make sure the main container is empty
-    if (this.terminalContainer) {
-      this.terminalContainer.innerHTML = "";
-      this.terminalContainer.appendChild(terminalContainer);
-    } else {
-      console.error("Main terminal container not found");
-      return;
-    }
-
-    // Store the container in our map
-    this.terminalContainers.set(id, terminalContainer);
-    console.log(`Created container for first tab ${id}`);
-
-    // Create terminal
-    const terminal = this.terminalManager.createTerminal(id);
-    console.log(`Created terminal for first tab ${id}`);
-
-    // Mount terminal with profile
-    await terminal.mount(terminalContainer, command, args);
-    console.log(`Mounted terminal for first tab ${id}`);
-
-    // Update the tab with the actual PTY ID
-    const ptyId = terminal.getPtyId();
-    if (ptyId) {
-      console.log(`Updating first tab ${id} with actual ptyId=${ptyId}`);
-      tab.terminalId = ptyId;
-    } else {
-      console.warn(`Failed to get ptyId for first terminal ${id}`);
-    }
-
-    // Make sure the container is visible
-    terminalContainer.style.display = "block";
-
-    // Focus the terminal
-    terminal.focus();
-
-    // Update the UI
-    this.updateTabsUI();
-    console.log(`First tab ${id} creation complete`);
   }
 
   private async getDefaultShellName(): Promise<string> {
@@ -357,78 +398,82 @@ export class TabManager {
   }
 
   async createTab(profileName?: string): Promise<void> {
-    if (profileName && !this.validateProfile(profileName)) {
-      return;
-    }
+    try {
+      if (profileName && !this.validateProfile(profileName)) {
+        console.warn(`Invalid profile: ${profileName}`);
+        return;
+      }
 
-    // Generate a unique ID for this tab
-    const id = crypto.randomUUID();
-    console.log(`Creating new tab with id=${id}`);
+      // Generate a unique ID for this tab
+      const id = crypto.randomUUID();
+      console.log(`Creating new tab with id=${id}`);
 
-    // Get shell name based on profile or default
-    let shellName: string;
-    let command: string | undefined;
-    let args: string[] | undefined;
+      // Get shell name based on profile or default
+      let shellName: string;
+      let command: string | undefined;
+      let args: string[] | undefined;
 
-    if (profileName && this.config.profiles) {
-      const profile = this.config.profiles.list.find(
-        (p) => p.name === profileName
-      );
-      if (profile) {
-        shellName = profile.name;
-        command = profile.command;
-        args = profile.args ?? undefined;
+      if (profileName && this.config.profiles) {
+        const profile = this.config.profiles.list.find(
+          (p) => p.name === profileName
+        );
+        if (profile) {
+          shellName = profile.name;
+          command = profile.command;
+          args = profile.args ?? undefined;
+        } else {
+          shellName = await this.getDefaultShellName();
+        }
       } else {
         shellName = await this.getDefaultShellName();
       }
-    } else {
-      shellName = await this.getDefaultShellName();
-    }
 
-    // Create a new tab object
-    const tab: Tab = {
-      id,
-      title: shellName,
-      terminalId: id, // Initially use the tab ID as the terminal ID
-      active: false, // Will be set to active when we switch to it
-    };
+      // Create a new tab object
+      const tab: Tab = {
+        id,
+        title: shellName,
+        terminalId: id, // Initially use the tab ID as the terminal ID
+        active: false, // Will be set to active when we switch to it
+      };
 
-    // Add the tab to our list
-    this.tabs.push(tab);
-    console.log(
-      `Added tab ${id} to tabs list, total tabs: ${this.tabs.length}`
-    );
+      // Add the tab to our list
+      this.tabs.push(tab);
+      console.log(
+        `Added tab ${id} to tabs list, total tabs: ${this.tabs.length}`
+      );
 
-    // Create terminal container
-    const terminalContainer = this.createTerminalContainer(id);
-    this.terminalContainers.set(id, terminalContainer);
-    console.log(`Created container for tab ${id}`);
+      // Create terminal container
+      const terminalContainer = this.createTerminalContainer(id);
+      console.log(`Created container for tab ${id}`);
 
-    // Create terminal
-    const terminal = this.terminalManager.createTerminal(id, () => {
-      // Focus handler
-      const activeTab = this.tabs.find((t) => t.active);
-      if (activeTab?.terminalId !== id) {
-        this.switchTab(tab.id);
+      // Create terminal
+      const terminal = this.terminalManager.createTerminal(id, () => {
+        // Focus handler
+        const activeTab = this.tabs.find((t) => t.active);
+        if (activeTab?.terminalId !== id) {
+          this.switchTab(tab.id);
+        }
+      });
+      console.log(`Created terminal for tab ${id}`);
+
+      // Mount the terminal
+      await terminal.mount(terminalContainer, command, args);
+      console.log(`Mounted terminal for tab ${id}`);
+
+      // Update the tab with the actual PTY ID
+      const ptyId = terminal.getPtyId();
+      if (ptyId) {
+        console.log(`Updating tab ${id} with actual ptyId=${ptyId}`);
+        tab.terminalId = ptyId;
+      } else {
+        console.warn(`Failed to get ptyId for terminal ${id}`);
       }
-    });
-    console.log(`Created terminal for tab ${id}`);
 
-    // Mount the terminal
-    await terminal.mount(terminalContainer, command, args);
-    console.log(`Mounted terminal for tab ${id}`);
-
-    // Update the tab with the actual PTY ID
-    const ptyId = terminal.getPtyId();
-    if (ptyId) {
-      console.log(`Updating tab ${id} with actual ptyId=${ptyId}`);
-      tab.terminalId = ptyId;
-    } else {
-      console.warn(`Failed to get ptyId for terminal ${id}`);
+      // Switch to the new tab
+      this.switchTab(id);
+    } catch (error) {
+      console.error("Error creating new tab:", error);
     }
-
-    // Switch to the new tab
-    this.switchTab(id);
   }
 
   async closeTab(tabId: string, forceClose: boolean = false): Promise<void> {
@@ -457,60 +502,68 @@ export class TabManager {
     // Store whether this tab was active before removing it
     const wasActive = tab.active;
 
-    // Clean up terminal
-    const terminal = this.terminalManager.getTerminal(tab.id);
-    if (terminal) {
-      console.log(`Destroying terminal for tab ${tab.id}`);
-      try {
-        await this.terminalManager.destroyTerminal(tab.id);
-      } catch (error) {
-        console.error(`Error destroying terminal for tab ${tab.id}:`, error);
-        // Continue with tab closure even if terminal destruction fails
+    try {
+      // Clean up terminal
+      const terminal = this.terminalManager.getTerminal(tab.id);
+      if (terminal) {
+        console.log(`Destroying terminal for tab ${tab.id}`);
+        try {
+          await this.terminalManager.destroyTerminal(tab.id);
+        } catch (error) {
+          console.error(`Error destroying terminal for tab ${tab.id}:`, error);
+          // Continue with tab closure even if terminal destruction fails
+        }
+      } else {
+        console.log(
+          `Terminal for tab ${tab.id} not found or already destroyed`
+        );
       }
-    } else {
-      console.log(`Terminal for tab ${tab.id} not found or already destroyed`);
-    }
 
-    // Remove container
-    const container = this.terminalContainers.get(tab.id);
-    if (container) {
-      console.log(`Removing container for tab ${tab.id}`);
-      container.remove();
-      this.terminalContainers.delete(tab.id);
-    } else {
-      console.log(`Container for tab ${tab.id} not found`);
-    }
+      // Remove container
+      const container = this.terminalContainers.get(tab.id);
+      if (container) {
+        console.log(`Removing container for tab ${tab.id}`);
+        container.remove();
+        this.terminalContainers.delete(tab.id);
+      } else {
+        console.log(`Container for tab ${tab.id} not found`);
+      }
 
-    // Remove tab from the array
-    this.tabs.splice(tabIndex, 1);
-    console.log(`Removed tab, remaining tabs: ${this.tabs.length}`);
+      // Remove tab from the array
+      this.tabs.splice(tabIndex, 1);
+      console.log(`Removed tab, remaining tabs: ${this.tabs.length}`);
 
-    // If this is the last tab and we're force closing (due to terminal exit),
-    // close the entire window instead of creating a new tab
-    if (this.tabs.length === 0 && forceClose) {
-      console.log("Last tab closed due to terminal exit, closing window");
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().close();
-      return;
-    }
+      // If this is the last tab and we're force closing (due to terminal exit),
+      // close the entire window instead of creating a new tab
+      if (this.tabs.length === 0 && forceClose) {
+        console.log("Last tab closed due to terminal exit, closing window");
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await getCurrentWindow().close();
+        return;
+      }
 
-    // If we closed the active tab, switch to another one
-    if (wasActive && this.tabs.length > 0) {
-      // Switch to the next tab, or the previous if we closed the last tab
-      const nextTabIndex = Math.min(tabIndex, this.tabs.length - 1);
-      const nextTab = this.tabs[nextTabIndex];
-      console.log(`Switching to tab ${nextTab.id}`);
-      this.switchTab(nextTab.id);
-    } else {
-      // Just update UI if we closed an inactive tab
-      console.log("Updating UI for inactive tab closure");
+      // If we closed the active tab, switch to another one
+      if (wasActive && this.tabs.length > 0) {
+        // Switch to the next tab, or the previous if we closed the last tab
+        const nextTabIndex = Math.min(tabIndex, this.tabs.length - 1);
+        const nextTab = this.tabs[nextTabIndex];
+        console.log(`Switching to tab ${nextTab.id}`);
+        this.switchTab(nextTab.id);
+      } else {
+        // Just update UI if we closed an inactive tab
+        console.log("Updating UI for inactive tab closure");
+        this.updateTabsUI();
+      }
+
+      // If we closed the last tab (but not due to terminal exit), create a new tab
+      if (this.tabs.length === 0) {
+        console.log("No tabs left, creating a new tab");
+        await this.createFirstTab();
+      }
+    } catch (error) {
+      console.error(`Error during tab closure:`, error);
+      // Try to recover by updating the UI
       this.updateTabsUI();
-    }
-
-    // If we closed the last tab (but not due to terminal exit), create a new tab
-    if (this.tabs.length === 0) {
-      console.log("No tabs left, creating a new tab");
-      await this.createFirstTab();
     }
 
     console.log("Tab closure complete");
@@ -519,71 +572,69 @@ export class TabManager {
   switchTab(tabId: string): void {
     console.log(`Switching to tab ${tabId}`);
 
-    // Find the tab we want to switch to
-    const tab = this.tabs.find((t) => t.id === tabId);
-    if (!tab) {
-      console.log(`Tab ${tabId} not found`);
-      return;
-    }
-
-    if (!this.terminalContainer) {
-      console.log(`Terminal container not found`);
-      return;
-    }
-
-    console.log(`Found tab ${tabId}, terminalId=${tab.terminalId}`);
-
-    // First, hide all terminal containers and mark all tabs as inactive
-    this.tabs.forEach((t) => {
-      // Update active state
-      const wasActive = t.active;
-      t.active = t.id === tabId;
-
-      // Log the state change
-      if (wasActive !== t.active) {
-        console.log(
-          `Tab ${t.id} active state changed: ${wasActive} -> ${t.active}`
-        );
-      }
-
-      // Get the container for this tab using the tab ID
-      const container = this.terminalContainers.get(t.id);
-      if (!container) {
-        console.log(`Container for tab ${t.id} not found`);
+    try {
+      // Find the tab we want to switch to
+      const tab = this.tabs.find((t) => t.id === tabId);
+      if (!tab) {
+        console.log(`Tab ${tabId} not found`);
         return;
       }
 
-      // Remove all containers from the DOM
-      if (container.parentElement) {
-        container.remove();
+      if (!this.terminalContainer) {
+        console.log(`Terminal container not found`);
+        return;
       }
-    });
 
-    // Now, show the active tab's container
-    const activeContainer = this.terminalContainers.get(tab.id);
-    if (!activeContainer) {
-      console.log(`Container for active tab ${tab.id} not found`);
-      return;
+      console.log(`Found tab ${tabId}, terminalId=${tab.terminalId}`);
+
+      // First, update active states in the tab objects
+      this.tabs.forEach((t) => {
+        const wasActive = t.active;
+        t.active = t.id === tabId;
+
+        // Log the state change
+        if (wasActive !== t.active) {
+          console.log(
+            `Tab ${t.id} active state changed: ${wasActive} -> ${t.active}`
+          );
+        }
+      });
+
+      // Clear the main container
+      this.terminalContainer.innerHTML = "";
+
+      // Get the container for the active tab
+      const activeContainer = this.terminalContainers.get(tab.id);
+      if (!activeContainer) {
+        console.log(`Container for active tab ${tab.id} not found`);
+        return;
+      }
+
+      // Add the active container to the main container
+      this.terminalContainer.appendChild(activeContainer);
+      console.log(`Added container for tab ${tab.id} to main container`);
+
+      // Focus and fit the terminal
+      const terminal = this.terminalManager.getTerminal(tab.id);
+      if (terminal) {
+        console.log(`Focusing terminal for tab ${tab.id}`);
+        // Use setTimeout to ensure the DOM has updated
+        setTimeout(() => {
+          terminal.focus();
+          terminal.fit();
+        }, 0);
+      } else {
+        console.log(`Terminal for tab ${tab.id} not found`);
+      }
+
+      // Update the UI to reflect the new active tab
+      this.updateTabsUI();
+      console.log(`Tab switch to ${tabId} complete`);
+    } catch (error) {
+      console.error(`Error during tab switch:`, error);
+      // Try to recover by updating the UI
+      this.updateTabsUI();
     }
-
-    // Clear the main container and add the active container
-    this.terminalContainer.innerHTML = "";
-    this.terminalContainer.appendChild(activeContainer);
-    console.log(`Added container for tab ${tab.id} to main container`);
-
-    // Focus and fit the terminal
-    const terminal = this.terminalManager.getTerminal(tab.id);
-    if (terminal) {
-      console.log(`Focusing terminal for tab ${tab.id}`);
-      terminal.focus();
-      terminal.fit();
-    } else {
-      console.log(`Terminal for tab ${tab.id} not found`);
-    }
-
-    // Update the UI to reflect the new active tab
-    this.updateTabsUI();
-    console.log(`Tab switch to ${tabId} complete`);
   }
 
   public async toggleProfileMenu(): Promise<void> {

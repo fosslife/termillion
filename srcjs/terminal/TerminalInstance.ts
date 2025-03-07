@@ -26,10 +26,10 @@ export class TerminalInstance {
 
   constructor(
     private readonly config: Config,
-    private readonly id: string,
+    tabId: string,
     private readonly onFocus?: () => void
   ) {
-    this.tabId = id;
+    this.tabId = tabId;
   }
 
   async mount(
@@ -164,8 +164,8 @@ export class TerminalInstance {
     );
 
     // Set the terminal ID and tab ID as data attributes on the container for debugging
-    container.dataset.ptyId = this.ptyId;
-    container.dataset.tabId = this.tabId;
+    container.dataset.ptyId = this.ptyId || "";
+    container.dataset.tabId = this.tabId || "";
 
     // Set up event listeners
     this.unlistenOutput = (await getCurrentWindow().listen(
@@ -253,33 +253,55 @@ export class TerminalInstance {
     if (!this.fitAddon || !this.xterm || !this.ptyId || this.isBeingDestroyed)
       return;
 
-    // Store current viewport position
-    const buffer = this.xterm.buffer.active;
-    const currentLine = buffer.baseY + buffer.viewportY;
-    const isAtBottom = currentLine + this.xterm.rows >= buffer.length;
+    try {
+      // Store current viewport position
+      const buffer = this.xterm.buffer.active;
+      const currentLine = buffer.baseY + buffer.viewportY;
+      const isAtBottom = currentLine + this.xterm.rows >= buffer.length;
 
-    this.fitAddon.fit();
+      // Perform the fit operation
+      this.fitAddon.fit();
 
-    // After fit, restore position or stay at bottom
-    requestAnimationFrame(() => {
-      if (isAtBottom) {
-        this.xterm?.scrollToBottom();
-      } else {
-        // Try to maintain relative position
-        this.xterm?.scrollToLine(currentLine);
-      }
-      this.xterm?.refresh(0, this.xterm.rows - 1);
-    });
+      // Get the new dimensions
+      const newRows = this.xterm.rows;
+      const newCols = this.xterm.cols;
 
-    invoke("resize_pty", {
-      ptyId: this.ptyId,
-      rows: this.xterm.rows,
-      cols: this.xterm.cols,
-    }).catch(console.error);
+      // After fit, restore position or stay at bottom
+      requestAnimationFrame(() => {
+        try {
+          if (isAtBottom && this.xterm) {
+            this.xterm.scrollToBottom();
+          } else if (this.xterm) {
+            // Try to maintain relative position
+            this.xterm.scrollToLine(currentLine);
+          }
+          this.xterm?.refresh(0, this.xterm.rows - 1);
+        } catch (error) {
+          console.error("Error restoring terminal position after fit:", error);
+        }
+      });
+
+      // Resize the PTY
+      invoke("resize_pty", {
+        ptyId: this.ptyId,
+        rows: newRows,
+        cols: newCols,
+      }).catch((error) => {
+        console.error("Error resizing PTY:", error);
+      });
+    } catch (error) {
+      console.error("Error during terminal fit operation:", error);
+    }
   }
 
   async destroy(): Promise<void> {
     console.log(`Destroying terminal instance with ptyId=${this.ptyId}`);
+
+    // Prevent multiple destroy calls
+    if (this.isBeingDestroyed) {
+      console.log("Terminal is already being destroyed, skipping");
+      return;
+    }
 
     // Mark as being destroyed to prevent further operations
     this.isBeingDestroyed = true;
@@ -295,8 +317,10 @@ export class TerminalInstance {
         console.log(`Successfully destroyed PTY ${this.ptyId}`);
       } catch (error) {
         console.error("Error destroying PTY:", error);
+      } finally {
+        // Always clear the ptyId to prevent further operations
+        this.ptyId = null;
       }
-      this.ptyId = null;
     }
 
     // Remove container reference
@@ -328,31 +352,59 @@ export class TerminalInstance {
     console.log(`Cleaning up resources for terminal with ptyId=${this.ptyId}`);
 
     // Clean up event listeners
-    this.container?.removeEventListener("click", this.handleClick);
-    this.resizeObserver?.disconnect();
-
-    if (this.unlistenOutput) {
-      this.unlistenOutput();
-      this.unlistenOutput = null;
+    if (this.container) {
+      this.container.removeEventListener("click", this.handleClick);
     }
 
-    if (this.unlistenExit) {
-      this.unlistenExit();
-      this.unlistenExit = null;
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
 
-    // Dispose xterm
-    if (this.xterm) {
-      this.xterm.dispose();
-      this.xterm = null;
+    // Unlisten events in a try-catch to handle potential errors
+    try {
+      if (this.unlistenOutput) {
+        this.unlistenOutput();
+        this.unlistenOutput = null;
+        console.log("Unlistened output events");
+      }
+    } catch (error) {
+      console.error("Error unlistening output events:", error);
+    }
+
+    try {
+      if (this.unlistenExit) {
+        this.unlistenExit();
+        this.unlistenExit = null;
+        console.log("Unlistened exit events");
+      }
+    } catch (error) {
+      console.error("Error unlistening exit events:", error);
+    }
+
+    // Dispose xterm in a try-catch to handle potential errors
+    try {
+      if (this.xterm) {
+        console.log("Disposing xterm instance");
+        this.xterm.dispose();
+        this.xterm = null;
+      }
+    } catch (error) {
+      console.error("Error disposing xterm:", error);
     }
 
     // Clear container
     if (this.container) {
-      this.container.innerHTML = "";
+      try {
+        console.log("Clearing container");
+        this.container.innerHTML = "";
+      } catch (error) {
+        console.error("Error clearing container:", error);
+      }
     }
 
     this.focused = false;
+    console.log("Terminal resources cleanup complete");
   }
 
   // Get the terminal ID
