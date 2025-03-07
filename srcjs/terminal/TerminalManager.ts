@@ -7,7 +7,8 @@ export class TerminalManager {
   constructor(private readonly config: Config) {}
 
   createTerminal(id: string, onFocus?: () => void): TerminalInstance {
-    const terminal = new TerminalInstance(this.config, onFocus);
+    console.log(`Creating terminal instance for tab ${id}`);
+    const terminal = new TerminalInstance(this.config, id, onFocus);
     this.terminals.set(id, terminal);
     return terminal;
   }
@@ -17,10 +18,14 @@ export class TerminalManager {
   }
 
   async destroyTerminal(id: string): Promise<void> {
+    console.log(`Destroying terminal for tab ${id}`);
     const terminal = this.terminals.get(id);
     if (terminal) {
       await terminal.destroy();
       this.terminals.delete(id);
+      console.log(`Terminal for tab ${id} destroyed`);
+    } else {
+      console.log(`No terminal found for tab ${id}`);
     }
   }
 

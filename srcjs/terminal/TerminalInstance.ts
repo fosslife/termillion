@@ -16,6 +16,7 @@ export class TerminalInstance {
   private xterm: XTerm | null = null;
   private fitAddon: FitAddon | null = null;
   private ptyId: string | null = null;
+  private tabId: string | null = null;
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private unlistenOutput: (() => void) | null = null;
@@ -25,8 +26,11 @@ export class TerminalInstance {
 
   constructor(
     private readonly config: Config,
+    private readonly id: string,
     private readonly onFocus?: () => void
-  ) {}
+  ) {
+    this.tabId = id;
+  }
 
   async mount(
     container: HTMLElement,
@@ -146,9 +150,7 @@ export class TerminalInstance {
 
     // Create PTY with optional command and args
     const cwd = await homeDir();
-    console.log(cwd);
-    console.log(command);
-    console.log(args);
+    console.log("Creating PTY with:", { cwd, command, args });
     this.ptyId = await invoke<string>("create_pty", {
       cwd,
       rows: this.xterm.rows,
@@ -156,6 +158,14 @@ export class TerminalInstance {
       command,
       args,
     });
+
+    console.log(
+      `Terminal created with ptyId=${this.ptyId}, tabId=${this.tabId}`
+    );
+
+    // Set the terminal ID and tab ID as data attributes on the container for debugging
+    container.dataset.ptyId = this.ptyId;
+    container.dataset.tabId = this.tabId;
 
     // Set up event listeners
     this.unlistenOutput = (await getCurrentWindow().listen(
@@ -170,7 +180,7 @@ export class TerminalInstance {
     // Add exit event listener
     this.unlistenExit = (await getCurrentWindow().listen(
       `pty://exit/${this.ptyId}`,
-      (event: any) => {
+      async (event: any) => {
         console.log(
           `Terminal process exited with status: ${JSON.stringify(
             event.payload
@@ -181,11 +191,18 @@ export class TerminalInstance {
         if (!this.isBeingDestroyed && this.ptyId) {
           this.isBeingDestroyed = true;
 
-          // Emit an event that the tab manager can listen to
-          EventBus.getInstance().emit(EventBus.TERMINAL_EXIT, this.ptyId);
+          try {
+            // Clean up resources immediately to prevent memory leaks
+            await this.cleanupResources();
 
-          // Clean up resources immediately to prevent memory leaks
-          this.cleanupResources();
+            // Emit an event that the tab manager can listen to
+            // This should trigger the tab to be closed
+            EventBus.getInstance().emit(EventBus.TERMINAL_EXIT, this.ptyId);
+
+            console.log(`Exit event emitted for terminal ${this.ptyId}`);
+          } catch (error) {
+            console.error("Error handling terminal exit:", error);
+          }
         }
       }
     )) as unknown as () => void;
@@ -336,5 +353,15 @@ export class TerminalInstance {
     }
 
     this.focused = false;
+  }
+
+  // Get the terminal ID
+  getPtyId(): string | null {
+    return this.ptyId;
+  }
+
+  // Get the tab ID
+  getTabId(): string | null {
+    return this.tabId;
   }
 }
