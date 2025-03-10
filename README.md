@@ -1,7 +1,15 @@
-# Tauri + Vanilla TS
+# Termillion
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Typescript.
+a terminal app built with tauri and vanilla ts
 
-## Recommended IDE Setup
+## Features
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- [x] Profiles support
+- [x] Tabs
+- [ ] Search and replace
+- [x] Copy and paste
+- [ ] Multiple panes
+
+## Screenshots
+
+![Screenshot 1](./banner.png)
