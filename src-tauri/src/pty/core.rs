@@ -8,7 +8,7 @@ use std::sync::{
 };
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Window};
+use tauri::{ipc::Channel, AppHandle, Emitter, Window};
 use uuid::Uuid;
 
 use super::utils;
@@ -36,6 +36,14 @@ mod types {
         pub cols: u16,
         pub pixel_width: u16,
         pub pixel_height: u16,
+    }
+
+    // Define PTY output event types for channels
+    #[derive(Clone, Serialize)]
+    #[serde(rename_all = "camelCase", tag = "event", content = "data")]
+    pub enum PtyOutputEvent {
+        Output(String),
+        Exit { status: String },
     }
 
     impl From<PtySizeDto> for PtySize {
@@ -112,6 +120,7 @@ pub async fn create_pty(
     cols: u16,
     command: Option<String>,
     args: Option<Vec<String>>,
+    output_channel: Channel<PtyOutputEvent>,
 ) -> Result<String, String> {
     // Generate a unique ID for this PTY
     let pty_id = Uuid::new_v4().to_string();
@@ -164,9 +173,8 @@ pub async fn create_pty(
     let exit_event_sent = Arc::new(AtomicBool::new(false));
     let exit_event_sent_clone = exit_event_sent.clone();
 
-    // Clone window and pty_id for the reader thread
-    let window_clone = window.clone();
-    let pty_id_clone = pty_id.clone();
+    // Clone output channel for the reader thread
+    let output_channel_clone = output_channel.clone();
 
     // Create a reader for the PTY output
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
@@ -174,7 +182,7 @@ pub async fn create_pty(
     // Take the writer once and store it
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    // Spawn a thread to read from the PTY and emit events
+    // Spawn a thread to read from the PTY and send to channel
     let reader_thread = thread::spawn(move || {
         let mut buffer = [0u8; 8192];
 
@@ -186,14 +194,12 @@ pub async fn create_pty(
                     break;
                 }
                 Ok(n) => {
-                    // Convert bytes to string and emit event
+                    // Convert bytes to string and send to channel
                     let output = String::from_utf8_lossy(&buffer[0..n]).to_string();
 
-                    // Emit event with PTY output
-                    if let Err(e) =
-                        window_clone.emit(&format!("pty://output/{}", pty_id_clone), output)
-                    {
-                        eprintln!("Failed to emit PTY output: {}", e);
+                    // Send output via channel
+                    if let Err(e) = output_channel_clone.send(PtyOutputEvent::Output(output)) {
+                        eprintln!("Failed to send PTY output via channel: {}", e);
                     }
                 }
                 Err(e) => {
@@ -203,18 +209,17 @@ pub async fn create_pty(
             }
         }
 
-        // Emit PTY exit event when the reader thread ends, but only if not already sent
+        // Send exit event when the reader thread ends, but only if not already sent
         if !exit_event_sent_clone.load(Ordering::SeqCst) {
             if exit_event_sent_clone
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok()
             {
-                println!("Sending exit event from reader thread");
-                if let Err(e) = window_clone.emit(
-                    &format!("pty://exit/{}", pty_id_clone),
-                    serde_json::json!({ "status": "Reader thread ended" }),
-                ) {
-                    eprintln!("Failed to emit PTY exit event from reader thread: {}", e);
+                println!("Sending exit event from reader thread via channel");
+                if let Err(e) = output_channel_clone.send(PtyOutputEvent::Exit {
+                    status: "Reader thread ended".to_string(),
+                }) {
+                    eprintln!("Failed to send PTY exit event via channel: {}", e);
                 }
             }
         }
@@ -234,7 +239,7 @@ pub async fn create_pty(
     );
 
     // Create a thread to watch for process exit
-    let window_exit_clone = window.clone();
+    let output_channel_exit = output_channel.clone();
     let pty_id_exit_clone = pty_id.clone();
 
     let exit_watcher = thread::spawn(move || {
@@ -259,19 +264,18 @@ pub async fn create_pty(
                         // Process has exited
                         println!("PTY process exited with status: {:?}", status);
 
-                        // Emit exit event with status, but only if not already sent
+                        // Send exit event with status, but only if not already sent
                         if !pty.exit_event_sent.load(Ordering::SeqCst) {
                             if pty
                                 .exit_event_sent
                                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                                 .is_ok()
                             {
-                                println!("Sending exit event from exit watcher");
-                                if let Err(e) = window_exit_clone.emit(
-                                    &format!("pty://exit/{}", pty_id_exit_clone),
-                                    serde_json::json!({ "status": format!("{:?}", status) }),
-                                ) {
-                                    eprintln!("Failed to emit PTY exit event: {}", e);
+                                println!("Sending exit event from exit watcher via channel");
+                                if let Err(e) = output_channel_exit.send(PtyOutputEvent::Exit {
+                                    status: format!("{:?}", status),
+                                }) {
+                                    eprintln!("Failed to send PTY exit event via channel: {}", e);
                                 }
                             }
                         }

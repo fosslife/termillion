@@ -7,10 +7,23 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { homeDir } from "@tauri-apps/api/path";
 import type { Config } from "../config";
 import { EventBus } from "../utils/EventBus";
+import { Channel } from "@tauri-apps/api/core";
+
+// Define the PTY output event types to match the Rust backend
+type PtyOutputEvent =
+  | {
+      event: "output";
+      data: string;
+    }
+  | {
+      event: "exit";
+      data: {
+        status: string;
+      };
+    };
 
 export class TerminalInstance {
   private xterm: XTerm | null = null;
@@ -19,8 +32,7 @@ export class TerminalInstance {
   private tabId: string | null = null;
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
-  private unlistenOutput: (() => void) | null = null;
-  private unlistenExit: (() => void) | null = null;
+  private outputChannel: Channel<PtyOutputEvent> | null = null;
   private focused: boolean = false;
   private isBeingDestroyed: boolean = false;
 
@@ -151,39 +163,20 @@ export class TerminalInstance {
     // Create PTY with optional command and args
     const cwd = await homeDir();
     console.log("Creating PTY with:", { cwd, command, args });
-    this.ptyId = await invoke<string>("create_pty", {
-      cwd,
-      rows: this.xterm.rows,
-      cols: this.xterm.cols,
-      command,
-      args,
-    });
 
-    console.log(
-      `Terminal created with ptyId=${this.ptyId}, tabId=${this.tabId}`
-    );
+    // Create a channel for PTY output and exit events
+    this.outputChannel = new Channel<PtyOutputEvent>();
 
-    // Set the terminal ID and tab ID as data attributes on the container for debugging
-    container.dataset.ptyId = this.ptyId || "";
-    container.dataset.tabId = this.tabId || "";
+    // Set up channel message handler
+    this.outputChannel.onmessage = async (message: PtyOutputEvent) => {
+      if (this.isBeingDestroyed) return;
 
-    // Set up event listeners
-    this.unlistenOutput = (await getCurrentWindow().listen(
-      `pty://output/${this.ptyId}`,
-      (event: any) => {
-        if (!this.isBeingDestroyed) {
-          this.xterm?.write(event.payload);
-        }
-      }
-    )) as unknown as () => void;
-
-    // Add exit event listener
-    this.unlistenExit = (await getCurrentWindow().listen(
-      `pty://exit/${this.ptyId}`,
-      async (event: any) => {
+      if (message.event === "output") {
+        this.xterm?.write(message.data);
+      } else if (message.event === "exit") {
         console.log(
           `Terminal process exited with status: ${JSON.stringify(
-            event.payload
+            message.data.status
           )}`
         );
 
@@ -205,8 +198,26 @@ export class TerminalInstance {
           }
         }
       }
-    )) as unknown as () => void;
+    };
 
+    this.ptyId = await invoke<string>("create_pty", {
+      cwd,
+      rows: this.xterm.rows,
+      cols: this.xterm.cols,
+      command,
+      args,
+      outputChannel: this.outputChannel,
+    });
+
+    console.log(
+      `Terminal created with ptyId=${this.ptyId}, tabId=${this.tabId}`
+    );
+
+    // Set the terminal ID and tab ID as data attributes on the container for debugging
+    container.dataset.ptyId = this.ptyId || "";
+    container.dataset.tabId = this.tabId || "";
+
+    // Set up event listeners
     this.xterm.onData((data) => {
       if (this.ptyId && !this.isBeingDestroyed) {
         invoke("write_pty", {
@@ -361,25 +372,10 @@ export class TerminalInstance {
       this.resizeObserver = null;
     }
 
-    // Unlisten events in a try-catch to handle potential errors
-    try {
-      if (this.unlistenOutput) {
-        this.unlistenOutput();
-        this.unlistenOutput = null;
-        console.log("Unlistened output events");
-      }
-    } catch (error) {
-      console.error("Error unlistening output events:", error);
-    }
-
-    try {
-      if (this.unlistenExit) {
-        this.unlistenExit();
-        this.unlistenExit = null;
-        console.log("Unlistened exit events");
-      }
-    } catch (error) {
-      console.error("Error unlistening exit events:", error);
+    // Clean up channel
+    if (this.outputChannel) {
+      // Properly dispose of the channel
+      this.outputChannel = null;
     }
 
     // Dispose xterm in a try-catch to handle potential errors
