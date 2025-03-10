@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,
 };
 use std::thread;
@@ -17,7 +17,7 @@ use super::utils;
 mod types {
     use super::*;
     use std::io::Write;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
     // Store PTY instances and their associated child processes
     pub struct PtyInstance {
@@ -27,6 +27,27 @@ mod types {
         pub exit_watcher: Option<thread::JoinHandle<()>>,
         pub writer: Option<Box<dyn Write + Send>>,
         pub exit_event_sent: Arc<AtomicBool>, // Track if exit event has been sent
+        pub metrics: PtyMetrics,
+    }
+
+    // Performance metrics for PTY
+    #[derive(Clone)]
+    pub struct PtyMetrics {
+        pub bytes_read: Arc<AtomicU64>,
+        pub bytes_written: Arc<AtomicU64>,
+        pub messages_sent: Arc<AtomicU64>,
+        pub created_at: std::time::Instant,
+    }
+
+    impl PtyMetrics {
+        pub fn new() -> Self {
+            Self {
+                bytes_read: Arc::new(AtomicU64::new(0)),
+                bytes_written: Arc::new(AtomicU64::new(0)),
+                messages_sent: Arc::new(AtomicU64::new(0)),
+                created_at: std::time::Instant::now(),
+            }
+        }
     }
 
     // Struct for PTY size
@@ -42,8 +63,20 @@ mod types {
     #[derive(Clone, Serialize)]
     #[serde(rename_all = "camelCase", tag = "event", content = "data")]
     pub enum PtyOutputEvent {
-        Output(String),
-        Exit { status: String },
+        Output(Vec<u8>),
+        Exit {
+            status: String,
+        },
+        Metrics {
+            bytes_read: u64,
+            bytes_written: u64,
+            messages_sent: u64,
+            uptime_ms: u64,
+        },
+        Bell,
+        Title {
+            title: String,
+        },
     }
 
     impl From<PtySizeDto> for PtySize {
@@ -121,6 +154,9 @@ pub async fn create_pty(
     command: Option<String>,
     args: Option<Vec<String>>,
     output_channel: Channel<PtyOutputEvent>,
+    buffer_size: Option<usize>,
+    batch_timeout_ms: Option<u64>,
+    metrics_interval_ms: Option<u64>,
 ) -> Result<String, String> {
     // Generate a unique ID for this PTY
     let pty_id = Uuid::new_v4().to_string();
@@ -182,28 +218,134 @@ pub async fn create_pty(
     // Take the writer once and store it
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
+    // Create metrics
+    let metrics = PtyMetrics::new();
+    let bytes_read = metrics.bytes_read.clone();
+    let messages_sent = metrics.messages_sent.clone();
+
     // Spawn a thread to read from the PTY and send to channel
     let reader_thread = thread::spawn(move || {
-        let mut buffer = [0u8; 8192];
+        // Use the provided buffer size or default to 8192
+        let buffer_size = buffer_size.unwrap_or(8192);
+        let mut buffer = vec![0u8; buffer_size];
+
+        // Batch processing settings
+        let batch_timeout = Duration::from_millis(batch_timeout_ms.unwrap_or(10));
+        let mut batch_buffer = Vec::with_capacity(buffer_size * 2);
+        let mut last_send = std::time::Instant::now();
+
+        // Title detection state
+        let mut title_sequence = false;
+        let mut title_buffer = Vec::new();
+
+        // Function to check for and extract title escape sequences
+        let process_for_title =
+            |data: &[u8], batch: &mut Vec<u8>, title_seq: &mut bool, title_buf: &mut Vec<u8>| {
+                let mut i = 0;
+                while i < data.len() {
+                    if *title_seq {
+                        // We're in a title sequence
+                        if data[i] == b'\\' || data[i] == b'\x07' {
+                            // End of title sequence
+                            *title_seq = false;
+
+                            // Convert title buffer to string
+                            if let Ok(title) = String::from_utf8(title_buf.clone()) {
+                                // Send title event
+                                if let Err(e) =
+                                    output_channel_clone.send(PtyOutputEvent::Title { title })
+                                {
+                                    eprintln!("Failed to send title event: {}", e);
+                                }
+                            }
+
+                            // Clear title buffer
+                            title_buf.clear();
+                        } else {
+                            // Add to title buffer
+                            title_buf.push(data[i]);
+                        }
+
+                        // Don't add title sequence bytes to the batch buffer
+                    } else if i + 1 < data.len() && data[i] == b'\x1b' && data[i + 1] == b']' {
+                        // Start of potential title sequence
+                        if i + 3 < data.len() && data[i + 2] == b'0' && data[i + 3] == b';' {
+                            // Confirmed title sequence
+                            *title_seq = true;
+                            i += 3; // Skip ESC]0;
+                        } else {
+                            // Not a title sequence, add to batch
+                            batch.push(data[i]);
+                        }
+                    } else {
+                        // Regular data, add to batch
+                        batch.push(data[i]);
+                    }
+
+                    i += 1;
+                }
+            };
+
+        // Function to send the current batch
+        let mut send_batch = |buffer: &mut Vec<u8>, force: bool| {
+            let now = std::time::Instant::now();
+            let elapsed = now.duration_since(last_send);
+
+            // Send if we have data and either the timeout has elapsed or we're forcing a send
+            if !buffer.is_empty() && (force || elapsed >= batch_timeout) {
+                // Clone the batch buffer to send
+                let output = buffer.clone();
+
+                // Update metrics
+                bytes_read.fetch_add(output.len() as u64, Ordering::Relaxed);
+                messages_sent.fetch_add(1, Ordering::Relaxed);
+
+                // Send output via channel
+                if let Err(e) = output_channel_clone.send(PtyOutputEvent::Output(output)) {
+                    eprintln!("Failed to send PTY output via channel: {}", e);
+                }
+
+                // Clear the batch buffer and update the last send time
+                buffer.clear();
+                last_send = now;
+            }
+        };
 
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => {
                     // End of stream, PTY closed
                     println!("PTY reader detected EOF, terminal closed");
+
+                    // Send any remaining data in the batch
+                    send_batch(&mut batch_buffer, true);
                     break;
                 }
                 Ok(n) => {
-                    // Convert bytes to string and send to channel
-                    let output = String::from_utf8_lossy(&buffer[0..n]).to_string();
-
-                    // Send output via channel
-                    if let Err(e) = output_channel_clone.send(PtyOutputEvent::Output(output)) {
-                        eprintln!("Failed to send PTY output via channel: {}", e);
+                    // Check for bell character (ASCII 7)
+                    if buffer[0..n].contains(&7) {
+                        // Send bell event
+                        if let Err(e) = output_channel_clone.send(PtyOutputEvent::Bell) {
+                            eprintln!("Failed to send bell event: {}", e);
+                        }
                     }
+
+                    // Process for title sequences and add filtered data to batch buffer
+                    process_for_title(
+                        &buffer[0..n],
+                        &mut batch_buffer,
+                        &mut title_sequence,
+                        &mut title_buffer,
+                    );
+
+                    // Try to send the batch
+                    send_batch(&mut batch_buffer, false);
                 }
                 Err(e) => {
                     eprintln!("Error reading from PTY: {}", e);
+
+                    // Send any remaining data in the batch
+                    send_batch(&mut batch_buffer, true);
                     break;
                 }
             }
@@ -235,8 +377,52 @@ pub async fn create_pty(
             exit_watcher: None, // We'll set this after creating the thread
             writer: Some(writer),
             exit_event_sent,
+            metrics,
         },
     );
+
+    // Start metrics reporting if requested
+    if let Some(interval) = metrics_interval_ms {
+        let metrics_channel = output_channel.clone();
+        let metrics_pty_id = pty_id.clone();
+
+        thread::spawn(move || {
+            let interval = Duration::from_millis(interval);
+
+            loop {
+                thread::sleep(interval);
+
+                // Check if the PTY still exists
+                if let Some(store) = store::get(&metrics_pty_id) {
+                    let pty = match store.get(&metrics_pty_id) {
+                        Some(p) => p,
+                        None => break, // PTY was removed
+                    };
+
+                    // If exit event has been sent, stop reporting metrics
+                    if pty.exit_event_sent.load(Ordering::SeqCst) {
+                        break;
+                    }
+
+                    // Send metrics
+                    let metrics = PtyOutputEvent::Metrics {
+                        bytes_read: pty.metrics.bytes_read.load(Ordering::Relaxed),
+                        bytes_written: pty.metrics.bytes_written.load(Ordering::Relaxed),
+                        messages_sent: pty.metrics.messages_sent.load(Ordering::Relaxed),
+                        uptime_ms: pty.metrics.created_at.elapsed().as_millis() as u64,
+                    };
+
+                    if let Err(e) = metrics_channel.send(metrics) {
+                        eprintln!("Failed to send PTY metrics: {}", e);
+                        break;
+                    }
+                } else {
+                    // PTY not found, stop reporting metrics
+                    break;
+                }
+            }
+        });
+    }
 
     // Create a thread to watch for process exit
     let output_channel_exit = output_channel.clone();
@@ -338,6 +524,12 @@ pub async fn write_pty(pty_id: String, data: String) -> Result<(), String> {
                 .write_all(data.as_bytes())
                 .map_err(|e| e.to_string())?;
             writer.flush().map_err(|e| e.to_string())?;
+
+            // Update metrics
+            pty.metrics
+                .bytes_written
+                .fetch_add(data.len() as u64, Ordering::Relaxed);
+
             Ok(())
         } else {
             // If the writer is not available, try to take it again
@@ -346,6 +538,11 @@ pub async fn write_pty(pty_id: String, data: String) -> Result<(), String> {
                 .write_all(data.as_bytes())
                 .map_err(|e| e.to_string())?;
             writer.flush().map_err(|e| e.to_string())?;
+
+            // Update metrics
+            pty.metrics
+                .bytes_written
+                .fetch_add(data.len() as u64, Ordering::Relaxed);
 
             // Store the writer for future use
             pty.writer = Some(writer);
@@ -454,4 +651,23 @@ pub async fn is_pty_alive(pty_id: String) -> Result<bool, String> {
 #[tauri::command]
 pub async fn get_active_ptys() -> Result<Vec<String>, String> {
     Ok(store::get_all_ids())
+}
+
+// Add a new command to get metrics
+#[tauri::command]
+pub async fn get_pty_metrics(pty_id: String) -> Result<serde_json::Value, String> {
+    if let Some(store) = store::get(&pty_id) {
+        let pty = store.get(&pty_id).unwrap();
+
+        let metrics = serde_json::json!({
+            "bytes_read": pty.metrics.bytes_read.load(Ordering::Relaxed),
+            "bytes_written": pty.metrics.bytes_written.load(Ordering::Relaxed),
+            "messages_sent": pty.metrics.messages_sent.load(Ordering::Relaxed),
+            "uptime_ms": pty.metrics.created_at.elapsed().as_millis(),
+        });
+
+        Ok(metrics)
+    } else {
+        Err(format!("PTY with ID {} not found", pty_id))
+    }
 }

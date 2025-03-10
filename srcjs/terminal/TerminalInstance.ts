@@ -7,23 +7,52 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { homeDir } from "@tauri-apps/api/path";
 import type { Config } from "../config";
 import { EventBus } from "../utils/EventBus";
 import { Channel } from "@tauri-apps/api/core";
+import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 
 // Define the PTY output event types to match the Rust backend
 type PtyOutputEvent =
   | {
       event: "output";
-      data: string;
+      data: number[];
     }
   | {
       event: "exit";
       data: {
         status: string;
       };
+    }
+  | {
+      event: "metrics";
+      data: {
+        bytes_read: number;
+        bytes_written: number;
+        messages_sent: number;
+        uptime_ms: number;
+      };
+    }
+  | {
+      event: "bell";
+    }
+  | {
+      event: "title";
+      data: {
+        title: string;
+      };
     };
+
+// Define metrics type
+interface PtyMetrics {
+  bytesRead: number;
+  bytesWritten: number;
+  messagesSent: number;
+  uptimeMs: number;
+  throughputBps: number;
+}
 
 export class TerminalInstance {
   private xterm: XTerm | null = null;
@@ -35,6 +64,10 @@ export class TerminalInstance {
   private outputChannel: Channel<PtyOutputEvent> | null = null;
   private focused: boolean = false;
   private isBeingDestroyed: boolean = false;
+  private metrics: PtyMetrics | null = null;
+  private lastMetricsUpdate: number = 0;
+  private bellEnabled: boolean = true;
+  private currentTitle: string = "";
 
   constructor(
     private readonly config: Config,
@@ -47,7 +80,13 @@ export class TerminalInstance {
   async mount(
     container: HTMLElement,
     command?: string,
-    args?: string[]
+    args?: string[],
+    options?: {
+      bufferSize?: number;
+      batchTimeoutMs?: number;
+      metricsIntervalMs?: number;
+      bellEnabled?: boolean;
+    }
   ): Promise<void> {
     if (this.xterm) return;
     this.container = container;
@@ -137,6 +176,8 @@ export class TerminalInstance {
       scrollback: this.config.terminal?.scrollback ?? 5000,
       rows: 40, // Initial size
       cols: 100,
+      allowTransparency: true,
+      rightClickSelectsWord: true,
     };
 
     this.xterm = new XTerm(terminalOptions);
@@ -172,7 +213,9 @@ export class TerminalInstance {
       if (this.isBeingDestroyed) return;
 
       if (message.event === "output") {
-        this.xterm?.write(message.data);
+        // Convert byte array to Uint8Array and write to terminal
+        const uint8Array = new Uint8Array(message.data);
+        this.xterm?.write(uint8Array);
       } else if (message.event === "exit") {
         console.log(
           `Terminal process exited with status: ${JSON.stringify(
@@ -180,7 +223,7 @@ export class TerminalInstance {
           )}`
         );
 
-        // Avoid duplicate exit events
+        // Handle exit event logic
         if (!this.isBeingDestroyed && this.ptyId) {
           this.isBeingDestroyed = true;
 
@@ -197,6 +240,76 @@ export class TerminalInstance {
             console.error("Error handling terminal exit:", error);
           }
         }
+      } else if (message.event === "metrics") {
+        // Update metrics
+        const now = Date.now();
+        const timeDiff = now - this.lastMetricsUpdate;
+
+        // Calculate throughput if we have previous metrics
+        let throughputBps = 0;
+        if (this.metrics && timeDiff > 0) {
+          const bytesDiff = message.data.bytes_read - this.metrics.bytesRead;
+          throughputBps = (bytesDiff / timeDiff) * 1000; // Bytes per second
+        }
+
+        this.metrics = {
+          bytesRead: message.data.bytes_read,
+          bytesWritten: message.data.bytes_written,
+          messagesSent: message.data.messages_sent,
+          uptimeMs: message.data.uptime_ms,
+          throughputBps,
+        };
+
+        this.lastMetricsUpdate = now;
+
+        // Emit metrics event for anyone interested
+        EventBus.getInstance().emit("terminal:metrics", {
+          ptyId: this.ptyId,
+          metrics: this.metrics,
+        });
+      } else if (message.event === "bell") {
+        // Handle bell event
+        if (this.bellEnabled) {
+          // Play bell sound if available
+          try {
+            // Try to use the system bell
+            if (
+              "Notification" in window &&
+              Notification.permission === "granted"
+            ) {
+              // Use a silent notification as a visual bell
+              new Notification("Terminal Bell", {
+                body: "A terminal process is requesting your attention",
+                silent: true,
+              });
+            } else {
+              // Fallback to a simple beep sound
+              const audio = new Audio(
+                "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU..."
+              ); // Base64 encoded short beep sound
+              audio.volume = 0.5;
+              audio
+                .play()
+                .catch((e) => console.error("Failed to play bell sound:", e));
+            }
+          } catch (error) {
+            console.error("Error playing bell sound:", error);
+          }
+
+          // Emit bell event for anyone interested
+          EventBus.getInstance().emit("terminal:bell", {
+            ptyId: this.ptyId,
+          });
+        }
+      } else if (message.event === "title") {
+        // Update the terminal title
+        this.currentTitle = message.data.title;
+
+        // Emit title event for anyone interested
+        EventBus.getInstance().emit("terminal:title", {
+          ptyId: this.ptyId,
+          title: this.currentTitle,
+        });
       }
     };
 
@@ -207,6 +320,9 @@ export class TerminalInstance {
       command,
       args,
       outputChannel: this.outputChannel,
+      buffer_size: options?.bufferSize || 32768, // Default to 32KB for better performance
+      batch_timeout_ms: options?.batchTimeoutMs || 10, // Default to 10ms batch timeout
+      metrics_interval_ms: options?.metricsIntervalMs || 1000, // Default to 1 second metrics interval
     });
 
     console.log(
@@ -244,6 +360,134 @@ export class TerminalInstance {
     this.fit(); // Initial fit
 
     this.setupFocusTracking();
+
+    // Set bell enabled from options or default to true
+    this.bellEnabled =
+      options?.bellEnabled !== undefined ? options.bellEnabled : true;
+
+    // Add clipboard event handlers
+    this.xterm.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      // Handle copy (Ctrl+C or Cmd+C when text is selected)
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key === "c" &&
+        this.xterm?.hasSelection()
+      ) {
+        const selection = this.xterm.getSelection();
+        // Use Tauri's clipboard plugin
+        writeText(selection).catch((err: Error) => {
+          console.error("Failed to copy to clipboard:", err);
+        });
+        return false; // Prevent default handling
+      }
+
+      // Handle paste (Ctrl+V or Cmd+V)
+      if ((event.ctrlKey || event.metaKey) && event.key === "v") {
+        // Use Tauri's clipboard plugin
+        readText()
+          .then((text: string) => {
+            if (text && this.ptyId && !this.isBeingDestroyed) {
+              invoke("write_pty", {
+                ptyId: this.ptyId,
+                data: text,
+              }).catch(console.error);
+            }
+          })
+          .catch((err: Error) => {
+            console.error("Failed to read from clipboard:", err);
+          });
+        return false; // Prevent default handling
+      }
+
+      return true; // Allow other key events
+    });
+
+    // Add context menu for copy/paste
+    container.addEventListener("contextmenu", (e: MouseEvent) => {
+      e.preventDefault();
+
+      // Create a simple context menu
+      const menu = document.createElement("div");
+      menu.className = "terminal-context-menu";
+      menu.style.position = "absolute";
+      menu.style.left = `${e.clientX}px`;
+      menu.style.top = `${e.clientY}px`;
+      menu.style.backgroundColor = this.config.theme.background || "#1a1b26";
+      menu.style.color = this.config.theme.foreground || "#a9b1d6";
+      menu.style.border = "1px solid #30374b";
+      menu.style.borderRadius = "4px";
+      menu.style.padding = "4px 0";
+      menu.style.boxShadow = "0 2px 10px rgba(0, 0, 0, 0.2)";
+      menu.style.zIndex = "1000";
+
+      // Add menu items
+      const addMenuItem = (text: string, action: () => void) => {
+        const item = document.createElement("div");
+        item.textContent = text;
+        item.style.padding = "6px 12px";
+        item.style.cursor = "pointer";
+        item.style.fontSize = "14px";
+
+        item.addEventListener("mouseenter", () => {
+          item.style.backgroundColor = this.config.theme.selection || "#28324e";
+        });
+
+        item.addEventListener("mouseleave", () => {
+          item.style.backgroundColor = "transparent";
+        });
+
+        item.addEventListener("click", () => {
+          action();
+          document.body.removeChild(menu);
+        });
+
+        menu.appendChild(item);
+      };
+
+      // Copy menu item
+      addMenuItem("Copy", () => {
+        const selection = this.xterm?.getSelection();
+        if (selection) {
+          // Use Tauri's clipboard plugin
+          writeText(selection).catch((err: Error) => {
+            console.error("Failed to copy to clipboard:", err);
+          });
+        }
+      });
+
+      // Paste menu item
+      addMenuItem("Paste", () => {
+        // Use Tauri's clipboard plugin
+        readText()
+          .then((text: string) => {
+            if (text && this.ptyId && !this.isBeingDestroyed) {
+              invoke("write_pty", {
+                ptyId: this.ptyId,
+                data: text,
+              }).catch(console.error);
+            }
+          })
+          .catch((err: Error) => {
+            console.error("Failed to read from clipboard:", err);
+          });
+      });
+
+      // Add the menu to the document
+      document.body.appendChild(menu);
+
+      // Remove the menu when clicking outside
+      const removeMenu = (e: MouseEvent) => {
+        if (!menu.contains(e.target as Node)) {
+          document.body.removeChild(menu);
+          document.removeEventListener("click", removeMenu);
+        }
+      };
+
+      // Use setTimeout to avoid immediate removal
+      setTimeout(() => {
+        document.addEventListener("click", removeMenu);
+      }, 0);
+    });
   }
 
   private handleClick = (e: MouseEvent) => {
@@ -411,5 +655,25 @@ export class TerminalInstance {
   // Get the tab ID
   getTabId(): string | null {
     return this.tabId;
+  }
+
+  // Add a method to get the current metrics
+  getMetrics(): PtyMetrics | null {
+    return this.metrics;
+  }
+
+  // Add a method to enable/disable the bell
+  setBellEnabled(enabled: boolean): void {
+    this.bellEnabled = enabled;
+  }
+
+  // Add a method to get the bell enabled state
+  isBellEnabled(): boolean {
+    return this.bellEnabled;
+  }
+
+  // Add a method to get the current title
+  getTitle(): string {
+    return this.currentTitle;
   }
 }

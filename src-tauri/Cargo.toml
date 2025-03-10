@@ -31,6 +31,7 @@ documented = "0.3"
 toml_edit = "0.22"
 which = "4.4"
 dirs = "5.0"
+tauri-plugin-clipboard-manager = "2.2.1"
 
 [dependencies.uuid]
 version = "1.12.0"

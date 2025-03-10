@@ -28,6 +28,7 @@ async fn save_config(app: tauri::AppHandle, config: Config) -> Result<(), String
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -41,7 +42,8 @@ pub fn run() {
             pty::resize_pty,
             pty::destroy_pty,
             pty::is_pty_alive,
-            pty::get_active_ptys
+            pty::get_active_ptys,
+            pty::get_pty_metrics
         ])
         .setup(|app| {
             let process_arg: Vec<String> = env::args().collect();
